@@ -118,11 +118,28 @@
             zarith
           ]);
 
+        rustToolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        withRustComponents =
+          extra:
+          rustToolchain.override {
+            extensions = (builtins.fromTOML (builtins.readFile ./rust-toolchain.toml)).toolchain.components ++ extra;
+          };
+
+        # coqc for bin/vfrocq; Rocq 9 no longer bundles its stdlib
+        coqRuntime = pkgs.coq_9_0.withPackages (ps: [ ps.stdlib ]);
+
         runtimeDeps = [
-          (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
-          # coqc for bin/vfrocq; Rocq 9 no longer bundles its stdlib
-          (pkgs.coq_9_0.withPackages (ps: [ ps.stdlib ]))
+          rustToolchain
+          coqRuntime
         ];
+
+        # rust-src must not be in rustc's sysroot: the MIR exporter then also loads std's
+        # sources and crashes on tests/rust/safe_abstraction/vec. Miri reads it from here instead.
+        # (XARGO_RUST_SRC is what rust-overlay's cargo-miri wrapper checks.)
+        miriEnv = rec {
+          MIRI_LIB_SRC = "${withRustComponents [ "rust-src" ]}/lib/rustlib/src/rust/library";
+          XARGO_RUST_SRC = MIRI_LIB_SRC;
+        };
 
         ideLibs = [
           ocamlPackages.lablgtk
@@ -145,6 +162,9 @@
           ]);
 
         testingTools = [
+          # replaces runtimedeps, as thie rust environment needs to be different
+          (withRustComponents [ "miri" ])
+          coqRuntime
           # examples/helloproc generates its (gitignored) proxy vfmanifest with an OCaml script
           ocamlPackages.ocaml
           # mysh's `ifrocq` probes for coqc with `which`
@@ -226,7 +246,7 @@
           nativeBuildInputs = [
             self.packages.${system}.default
           ]
-          ++ runtimeDeps ++ testingTools;
+          ++ testingTools;
           cargoDeps = pkgs.rustPlatform.importCargoLock {
             lockFile = ./tests/rust/purely_unsafe/httpd_mt/Cargo.lock;
           };
@@ -240,9 +260,10 @@
 
         devShells.default = pkgs.mkShell (
           vfEnv
+          // miriEnv
           // {
             name = "verifast-dev";
-            packages = buildTools ++ buildLibs ++ runtimeDeps ++ ideLibs ++ devTools ++ testingTools;
+            packages = buildTools ++ buildLibs ++ ideLibs ++ devTools ++ testingTools;
           }
         );
       }
