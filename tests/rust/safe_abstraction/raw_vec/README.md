@@ -567,9 +567,9 @@ The proof then wraps up the payloads to be consumed when closing the fractured b
 ```
     {
         pred Ctx() =
-            ref_padding_end_token(l, l0, f/2) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f]ref_padding_initialized(l) &*&
-            ref_readonly_end_token(&(*l).ptr, &(*l0).ptr, f/2) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f]ref_initialized(&(*l).ptr) &*&
-            ref_readonly_end_token(&(*l).cap, &(*l0).cap, f/2) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f]ref_initialized(&(*l).cap);
+            [f/2]ref_padding_end_token(l, l0) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f]ref_padding_initialized(l) &*&
+            [f/2]ref_end_token(&(*l).ptr, &(*l0).ptr) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f]ref_initialized(&(*l).ptr) &*&
+            [f/2]ref_end_token(&(*l).cap, &(*l0).cap) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f]ref_initialized(&(*l).cap);
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(
                 Ctx,
@@ -583,8 +583,8 @@ The proof then wraps up the payloads to be consumed when closing the fractured b
             open ref_initialized_::<RawVecInner<A>>(l)();
             open Ctx();
             open_ref_initialized_RawVecInner(l);
-            end_ref_readonly(&(*l).ptr);
-            end_ref_readonly(&(*l).cap);
+            end_ref(&(*l).ptr);
+            end_ref(&(*l).cap);
             end_ref_padding_RawVecInner(l);
             close [f]RawVecInner_frac_borrow_content::<A>(l0, elemLayout, ptr, capacity)();
             close [f]ref_initialized_::<A>(&(*l).alloc)();
@@ -606,7 +606,7 @@ The proof is now ready to call [`close_frac_borrow_strong_`](https://github.com/
 
 Lemma `close_frac_borrow_strong_` requires the restoring lemma to be proven. More specifically, it requires an `is_restore_frac_borrow` chunk, which serves as evidence that a lemma satisfying *lemma type* [`restore_frac_borrow`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L351) has been proven. More generally, an `is_T` predicate is introduced by VeriFast for each *lemma type* `T`. An `is_T` chunk can be produced using a `produce_lem_ptr_chunk T(lemTypeArgs)(lemParams) { Proof } { Client }` ghost command, specifying arguments `lemTypeArgs` for the lemma type parameters, parameter names `lemParams` for the lemma parameters, and two blocks of ghost code: a block `Proof` that proves a lemma that satisfies the lemma type, and a block `Client` that can use the `is_T` chunk. The `is_T` chunk is produced at the start of `Client` and consumed at the end. (Consuming the `is_T` chunk at the end of `Client` is necessary for preventing infinite recursion through lemma pointers.)
 
-The proof of the restoring lemma opens the payload predicates and the context predicate. It then calls `open_ref_initialized_RawVecInner` to turn the `[f]ref_initialized(l)` chunk back into chunks for the fields and for the padding. It then uses `end_ref_readonly` and `end_ref_padding_RawVecInner` to transfer the fractional ownership at `l` back to `l0`. At that point the original payload predicates can be closed up.
+The proof of the restoring lemma opens the payload predicates and the context predicate. It then calls `open_ref_initialized_RawVecInner` to turn the `[f]ref_initialized(l)` chunk back into chunks for the fields and for the padding. It then uses `end_ref` and `end_ref_padding_RawVecInner` to transfer the fractional ownership at `l` back to `l0`. At that point the original payload predicates can be closed up.
 
 The `Client` block of the `produce_lem_ptr_chunk` ghost command simply calls `close_frac_borrow_strong_`. This lemma produces a full borrow, which is turned into a fractured borrow using [`full_borrow_into_frac`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L262). The resulting fractured borrow is split into two using [`frac_borrow_split`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L314). At this point, the proof has two fractured borrows, each of whose payloads is scaled by some coefficient. The coefficients are dropped using lemma [`frac_borrow_implies_scaled`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L324).
 

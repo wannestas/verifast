@@ -668,8 +668,8 @@ lem init_ref_Vec_<T, A>(l: *Vec<T, A>)
     close sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
     {
         pred Ctx() =
-            [f/2](*l0).len |-> length &*& ref_readonly_end_token(&(*l).len, &(*l0).len, f/2) &*& [1 - f]ref_initialized(&(*l).len) &*&
-            [f/2]struct_Vec_padding(l0) &*& ref_padding_end_token(l, l0, f/2) &*& [1 - f]ref_padding_initialized(l);
+            [f/2](*l0).len |-> length &*& [f/2]ref_end_token(&(*l).len, &(*l0).len) &*& [1 - f]ref_initialized(&(*l).len) &*&
+            [f/2]struct_Vec_padding(l0) &*& [f/2]ref_padding_end_token(l, l0) &*& [1 - f]ref_padding_initialized(l);
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(
             Ctx,
@@ -684,7 +684,7 @@ lem init_ref_Vec_<T, A>(l: *Vec<T, A>)
             open scaledp(f/2, Vec_frac_borrow_content(l, length))();
             open [f/2]Vec_frac_borrow_content::<T, A>(l, length)();
             open_ref_initialized_Vec(l);
-            end_ref_readonly(&(*l).len);
+            end_ref(&(*l).len);
             end_ref_padding_Vec(l);
             close [f]ref_initialized_::<RawVec<T, A>>(&(*l).buf)();
             close [f]Vec_frac_borrow_content::<T, A>(l0, length)();
@@ -730,8 +730,8 @@ lem init_ref_Vec_m<T, A>(l: *Vec<T, A>)
     close sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
     {
         pred Ctx() =
-            [f/2](*l0).len |-> length &*& ref_readonly_end_token(&(*l).len, &(*l0).len, f/2) &*& [1 - f]ref_initialized(&(*l).len) &*&
-            [f/2]struct_Vec_padding(l0) &*& ref_padding_end_token(l, l0, f/2) &*& [1 - f]ref_padding_initialized(l);
+            [f/2](*l0).len |-> length &*& [f/2]ref_end_token(&(*l).len, &(*l0).len) &*& [1 - f]ref_initialized(&(*l).len) &*&
+            [f/2]struct_Vec_padding(l0) &*& [f/2]ref_padding_end_token(l, l0) &*& [1 - f]ref_padding_initialized(l);
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(
             Ctx,
@@ -746,7 +746,7 @@ lem init_ref_Vec_m<T, A>(l: *Vec<T, A>)
             open scaledp(f/2, Vec_frac_borrow_content(l, length))();
             open [f/2]Vec_frac_borrow_content::<T, A>(l, length)();
             open_ref_initialized_Vec(l);
-            end_ref_readonly(&(*l).len);
+            end_ref(&(*l).len);
             end_ref_padding_Vec(l);
             close [f]ref_initialized_::<RawVec<T, A>>(&(*l).buf)();
             close [f]Vec_frac_borrow_content::<T, A>(l0, length)();
@@ -2508,8 +2508,8 @@ impl<T, A: Allocator> Vec<T, A> {
             //@ open_points_to(buf_ref);
             let buf = ptr::read(&me.buf);
             //@ close_points_to(buf_ref, 1/4);
-            //@ end_ref_readonly(buf_ref);
-            //@ end_ref_readonly(me_ref);
+            //@ end_ref(buf_ref);
+            //@ end_ref(me_ref);
             
             //@ Vec_inv2();
             //@ open Vec(t, self1, alloc_id, ptr1, capacity1, length);
@@ -2518,7 +2518,7 @@ impl<T, A: Allocator> Vec<T, A> {
             //@ init_ref_readonly(me_ref2, 1/2);
             //@ std::mem::MAX_SLICE_LEN_def::<T>();
             let len = (&me).len();
-            //@ end_ref_readonly(me_ref2);
+            //@ end_ref(me_ref2);
             //@ open_points_to(&me);
             
             /*@
@@ -3319,7 +3319,7 @@ impl<T, A: Allocator> Vec<T, A> {
         //@ let self_ref = precreate_ref(self);
         //@ init_ref_readonly(self_ref, 1/2);
         let len = self.len();
-        //@ end_ref_readonly(self_ref);
+        //@ end_ref(self_ref);
         
         if index >= len {
             //@ assume(false); // TODO! Requires dealing with local function `assert_failed`

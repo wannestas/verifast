@@ -150,14 +150,6 @@ mod num {
 
     /*@
     
-    lem init_ref_usize(p: *usize, coef: real);
-        req ref_init_perm::<usize>(p, ?x) &*& [?f](*x |-> ?v) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized(p) &*& [coef*f](*p |-> v) &*& [(1 - coef)*f](*x |-> v) &*& ref_end_token(p, x, coef*f);
-    
-    lem end_ref_usize(p: *usize);
-        req ref_initialized(p) &*& ref_end_token(p, ?x, ?f) &*& [f](*p |-> ?v);
-        ens [f](*x |-> v);
-    
     fix wrapping_sub_usize(a: usize, b: usize) -> usize { if b <= a { a - b } else { a + usize::MAX + 1 - b } }
     
     @*/
@@ -233,16 +225,6 @@ mod num {
         lem UsizeNoHighBit_inv(n: UsizeNoHighBit);
             req true;
             ens 0 <= n.as_inner() &*& n.as_inner() <= isize::MAX;
-        
-        pred end_ref_UsizeNoHighBit_token(p: *UsizeNoHighBit, x: *UsizeNoHighBit, f: real);
-        
-        lem init_ref_UsizeNoHighBit(p: *UsizeNoHighBit, coef: real);
-            req ref_init_perm(p, ?x) &*& [?f](*x |-> ?u) &*& 0 < coef &*& coef < 1;
-            ens end_ref_UsizeNoHighBit_token(p, x, f*coef) &*& [(1-coef)*f](*x |-> u) &*& [coef*f](*p |-> u) &*& ref_initialized(p);
-        
-        lem end_ref_UsizeNoHighBit(p: *UsizeNoHighBit);
-            req end_ref_UsizeNoHighBit_token(p, ?x, ?f) &*& [f](*p |-> ?u) &*& ref_initialized(p);
-            ens [f](*x |-> u);
         
         @*/
         
@@ -649,14 +631,6 @@ mod ptr {
         req true;
         ens NonNull::as_ptr::<T1>(upcast(v)) == NonNull::as_ptr::<T0>(v) as *_;
     
-    lem init_ref_NonNull<T>(p: *NonNull<T>, coef: real);
-        req ref_init_perm(p, ?x) &*& [?f](*x |-> ?v) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized(p) &*& [(1 - coef)*f](*x |-> v) &*& [coef*f](*p |-> v) &*& ref_end_token(p, x, coef*f);
-    
-    lem end_ref_NonNull<T>(p: *NonNull<T>);
-        req ref_initialized(p) &*& ref_end_token(p, ?x, ?f) &*& [f](*p |-> ?v);
-        ens [f](*x |-> v);
-    
     @*/
 
     impl<T> NonNull<T> {
@@ -709,16 +683,6 @@ mod ptr {
     lem_auto(Unique::from_non_null(nn).as_non_null_ptr()) Unique_as_non_null_ptr_from_non_null<T: ?Sized>(nn: NonNull<T>);
         req true;
         ens Unique::from_non_null(nn).as_non_null_ptr() == nn;
-    
-    pred end_ref_Unique_token<T>(p: *Unique<T>, x: *Unique<T>, f: real);
-    
-    lem init_ref_Unique<T>(p: *Unique<T>, coef: real);
-        req ref_init_perm(p, ?x) &*& [?f](*x |-> ?u) &*& 0 < coef &*& coef < 1;
-        ens end_ref_Unique_token(p, x, f*coef) &*& [(1-coef)*f](*x |-> u) &*& [coef*f](*p |-> u) &*& ref_initialized(p);
-    
-    lem end_ref_Unique<T>(p: *Unique<T>);
-        req end_ref_Unique_token(p, ?x, ?f) &*& [f](*p |-> ?u) &*& ref_initialized(p);
-        ens [f](*x |-> u);
     
     @*/
     
@@ -997,16 +961,6 @@ mod alloc {
     lem Layout_repeat_0_intro(layout: Layout);
         req true;
         ens layout.repeat(0) != none;
-    
-    pred end_ref_Layout_token(p: *Layout, x: *Layout, f: real);
-    
-    lem init_ref_Layout(p: *Layout, coef: real);
-        req ref_init_perm(p, ?x) &*& [?f](*x |-> ?l) &*& 0 < coef &*& coef < 1;
-        ens end_ref_Layout_token(p, x, coef*f) &*& [(1-coef)*f](*x |-> l) &*& [coef*f](*p |-> l) &*& ref_initialized(p);
-    
-    lem end_ref_Layout(p: *Layout);
-        req end_ref_Layout_token(p, ?x, ?f) &*& [f](*p |-> ?l) &*& ref_initialized(p);
-        ens [f](*x |-> l);
     
     @*/
     
@@ -1391,11 +1345,11 @@ mod boxed {
     
     lem init_ref_Box_in<T, A>(p: *Box<T, A>, coef: real);
         req init_ref_Box_in_token::<T, A>(?t, p, ?fs, ?x, ?alloc_id, ?p_contents_ptr, ?x_contents_ptr, ?f) &*& ref_initialized::<T>(p_contents_ptr) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>((1-coef)*f, t, (1-coef)*fs, x, alloc_id, x_contents_ptr) &*& Box_minus_contents_in::<T, A>(coef*f, t, coef*fs, p, alloc_id, p_contents_ptr) &*& ref_end_token(p, x, coef*f);
+        ens ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>((1-coef)*f, t, (1-coef)*fs, x, alloc_id, x_contents_ptr) &*& Box_minus_contents_in::<T, A>(coef*f, t, coef*fs, p, alloc_id, p_contents_ptr) &*& [coef*f]ref_end_token(p, x);
     
     lem end_ref_Box_in<T, A>(p: *Box<T, A>);
-        req ref_initialized::<Box<T, A>>(p) &*& ref_end_token(p, ?x, ?f) &*& Box_minus_contents_in::<T, A>(f, ?t, ?fs, p, ?alloc_id, ?p_contents_ptr);
-        ens Box_minus_contents_in::<T, A>(f, t, fs, x, alloc_id, _) &*& ref_initialized::<T>(p_contents_ptr);
+        req ref_initialized::<Box<T, A>>(p) &*& [?f]ref_end_token(p, ?x) &*& Box_minus_contents_in::<T, A>(f, ?t, ?fs, p, ?alloc_id, ?p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, ?x_contents_ptr);
+        ens Box_minus_contents_in::<T, A>(f, t, fs, x, alloc_id, _) &*& ref_initialized::<T>(p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, x_contents_ptr);
     
     @*/
 
@@ -1521,7 +1475,7 @@ mod option {
     
     lem init_ref_Option_None<T>(p: *Option<T>, coef: real);
         req ref_init_perm::<Option<T>>(p, ?x) &*& [?f](*x |-> Option::None) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized::<Option<T>>(p) &*& ref_end_token(p, x, coef*f) &*& [(1-coef)*f](*x |-> Option::None) &*& [coef*f](*p |-> Option::None);
+        ens ref_initialized::<Option<T>>(p) &*& [coef*f]ref_end_token(p, x) &*& [(1-coef)*f](*x |-> Option::None) &*& [coef*f](*p |-> Option::None);
     
     pred init_ref_Option_Some_token<T>(p: *Option<T>, x: *Option<T>, frac: real);
     
@@ -1531,15 +1485,15 @@ mod option {
     
     lem init_ref_Option_Some<T>(p: *Option<T>, coef: real);
         req init_ref_Option_Some_token::<T>(p, ?x, ?f) &*& ref_initialized::<T>(Option_Some_0_ptr(p)) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized::<Option<T>>(p) &*& [(1-coef)*f]Option_Some::<T>(x) &*& [coef*f]Option_Some::<T>(p) &*& ref_end_token(p, x, coef*f);
+        ens ref_initialized::<Option<T>>(p) &*& [(1-coef)*f]Option_Some::<T>(x) &*& [coef*f]Option_Some::<T>(p) &*& [coef*f]ref_end_token(p, x);
     
     lem end_ref_Option_None<T>(p: *Option<T>);
-        req ref_initialized::<Option<T>>(p) &*& ref_end_token(p, ?x, ?f) &*& [f](*p |-> Option::None);
+        req ref_initialized::<Option<T>>(p) &*& [?f]ref_end_token(p, ?x) &*& [f](*p |-> Option::None);
         ens [f](*x |-> Option::None);
     
     lem end_ref_Option_Some<T>(p: *Option<T>);
-        req ref_initialized::<Option<T>>(p) &*& ref_end_token(p, ?x, ?f) &*& [f]Option_Some::<T>(p);
-        ens [f]Option_Some::<T>(x) &*& ref_initialized::<T>(Option_Some_0_ptr(p));
+        req ref_initialized::<Option<T>>(p) &*& [?f]ref_end_token(p, ?x) &*& [f]Option_Some::<T>(p) &*& [f]ref_end_token::<T>(Option_Some_0_ptr(p), Option_Some_0_ptr(x));
+        ens [f]Option_Some::<T>(x) &*& ref_initialized::<T>(Option_Some_0_ptr(p)) &*& [f]ref_end_token::<T>(Option_Some_0_ptr(p), Option_Some_0_ptr(x));
     
     @*/
     
@@ -1718,14 +1672,6 @@ mod vec {
     lem own_to_Vec<T, A>(self: Vec<T, A>);
         req thread_token(?t) &*& <Vec<T, A>>.own(t, self);
         ens thread_token(t) &*& Vec::<T, A>(self, ?capacity, ?elems) &*& foreach(elems, own::<T>(t));
-    
-    lem init_ref_Vec<T, A>(p: *Vec<T, A>);
-        req ref_init_perm(p, ?x) &*& [?f](*x |-> ?v);
-        ens ref_end_token(p, x, f/2) &*& [f/2](*x |-> v) &*& [f/2](*p |-> v) &*& ref_initialized(p);
-    
-    lem end_ref_Vec<T, A>(p: *Vec<T, A>);
-        req ref_end_token(p, ?x, ?f) &*& [f](*p |-> ?v) &*& ref_initialized(p);
-        ens [f](*x |-> v);
     
     @*/
     

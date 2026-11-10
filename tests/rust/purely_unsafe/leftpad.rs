@@ -52,9 +52,9 @@ lem foreach_own_u8(t: thread_id_t, elems: list<u8>)
 pub fn leftpad_vec(c: u8, n: usize, v: &mut Vec<u8>) {
     //@ std::vec::own_to_Vec(*v);
     //@ let v_ref = precreate_ref(v);
-    //@ std::vec::init_ref_Vec(v_ref);
+    //@ init_ref_readonly(v_ref, 1/2);
     let ns = v.len();
-    //@ std::vec::end_ref_Vec(v_ref);
+    //@ end_ref(v_ref);
     if ns < n {
         let p = n - ns;
         v.reserve(p);

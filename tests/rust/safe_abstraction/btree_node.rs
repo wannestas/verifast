@@ -1146,8 +1146,8 @@ impl<'a, K: 'a, V: 'a> NodeRef<marker::Mut<'a>, K, V, marker::LeafOrInternal> {
         //@ open_points_to(self);
         //@ let self_ref = precreate_ref(self);
         //@ open_ref_init_perm_NodeRef(self_ref);
-        //@ std::ptr::init_ref_NonNull(&(*self_ref).node, 1/2);
-        //@ std::num::init_ref_usize(&(*self_ref).height, 1/2);
+        //@ init_ref_readonly(&(*self_ref).node, 1/2);
+        //@ init_ref_readonly(&(*self_ref).height, 1/2);
         //@ init_ref_padding_NodeRef(self_ref, 1/2);
         //@ close_ref_initialized_NodeRef(self_ref);
         // close [1/2]NodeRef_node(self_ref, _);
@@ -1158,8 +1158,8 @@ impl<'a, K: 'a, V: 'a> NodeRef<marker::Mut<'a>, K, V, marker::LeafOrInternal> {
         unsafe { (*leaf).parent_idx.write(parent_idx as u16) };
         //@ open_ref_initialized_NodeRef(self_ref);
         //@ end_ref_padding_NodeRef(self_ref);
-        //@ std::ptr::end_ref_NonNull(&(*self_ref).node);
-        //@ std::num::end_ref_usize(&(*self_ref).height);
+        //@ end_ref(&(*self_ref).node);
+        //@ end_ref(&(*self_ref).height);
         //@ close_points_to(self);
     }
 }

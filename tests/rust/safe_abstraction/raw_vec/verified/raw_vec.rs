@@ -469,9 +469,9 @@ lem init_ref_RawVecInner_<A>(l: *RawVecInner<A>)
     
     {
         pred Ctx() =
-            ref_padding_end_token(l, l0, f/2) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f]ref_padding_initialized(l) &*&
-            ref_readonly_end_token(&(*l).ptr, &(*l0).ptr, f/2) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f]ref_initialized(&(*l).ptr) &*&
-            ref_readonly_end_token(&(*l).cap, &(*l0).cap, f/2) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f]ref_initialized(&(*l).cap);
+            [f/2]ref_padding_end_token(l, l0) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f]ref_padding_initialized(l) &*&
+            [f/2]ref_end_token(&(*l).ptr, &(*l0).ptr) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f]ref_initialized(&(*l).ptr) &*&
+            [f/2]ref_end_token(&(*l).cap, &(*l0).cap) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f]ref_initialized(&(*l).cap);
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(
                 Ctx,
@@ -485,8 +485,8 @@ lem init_ref_RawVecInner_<A>(l: *RawVecInner<A>)
             open ref_initialized_::<RawVecInner<A>>(l)();
             open Ctx();
             open_ref_initialized_RawVecInner(l);
-            end_ref_readonly(&(*l).ptr);
-            end_ref_readonly(&(*l).cap);
+            end_ref(&(*l).ptr);
+            end_ref(&(*l).cap);
             end_ref_padding_RawVecInner(l);
             close [f]RawVecInner_frac_borrow_content::<A>(l0, elemLayout, ptr, capacity)();
             close [f]ref_initialized_::<A>(&(*l).alloc)();
@@ -518,8 +518,8 @@ lem init_ref_RawVecInner_m<A>(l: *RawVecInner<A>)
     let ptr_ = (*l0).ptr;
     let cap_ = (*l0).cap;
     open [f]ref_initialized_::<A>(&(*l).alloc)();
-    std::ptr::init_ref_NonNull(&(*l).ptr, 1/2);
-    std::num::niche_types::init_ref_UsizeNoHighBit(&(*l).cap, 1/2);
+    init_ref_readonly(&(*l).ptr, 1/2);
+    init_ref_readonly(&(*l).cap, 1/2);
     init_ref_padding_RawVecInner(l, 1/2);
     {
         pred P() = ref_padding_initialized(l);
@@ -530,9 +530,9 @@ lem init_ref_RawVecInner_m<A>(l: *RawVecInner<A>)
     {
         pred Ctx() =
             [f/2]ref_initialized(&(*l).alloc) &*&
-            ref_padding_end_token(l, l0, f/2) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f/2]ref_padding_initialized(l) &*&
-            ref_end_token(&(*l).ptr, &(*l0).ptr, f/2) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f/2]ref_initialized(&(*l).ptr) &*&
-            std::num::niche_types::end_ref_UsizeNoHighBit_token(&(*l).cap, &(*l0).cap, f/2) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f/2]ref_initialized(&(*l).cap);
+            [f/2]ref_padding_end_token(l, l0) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f/2]ref_padding_initialized(l) &*&
+            [f/2]ref_end_token(&(*l).ptr, &(*l0).ptr) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f/2]ref_initialized(&(*l).ptr) &*&
+            [f/2]ref_end_token(&(*l).cap, &(*l0).cap) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f/2]ref_initialized(&(*l).cap);
         produce_lem_ptr_chunk frac_borrow_convert_strong(Ctx, scaledp(f/2, sep_(ref_initialized_(l), RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity))), klong, f, sep_(RawVecInner_frac_borrow_content(l0, elemLayout, ptr, capacity), ref_initialized_(&(*l).alloc)))() {
             open scaledp(f/2, sep_(ref_initialized_(l), RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)))();
             open sep_(ref_initialized_(l), RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity))();
@@ -540,8 +540,8 @@ lem init_ref_RawVecInner_m<A>(l: *RawVecInner<A>)
             open RawVecInner_frac_borrow_content::<A>(l, elemLayout, ptr, capacity)();
             open_ref_initialized_RawVecInner(l);
             open Ctx();
-            std::ptr::end_ref_NonNull(&(*l).ptr);
-            std::num::niche_types::end_ref_UsizeNoHighBit(&(*l).cap);
+            end_ref(&(*l).ptr);
+            end_ref(&(*l).cap);
             end_ref_padding_RawVecInner(l);
             close [f]RawVecInner_frac_borrow_content::<A>(l0, elemLayout, ptr, capacity)();
             close [f]ref_initialized_::<A>(&(*l).alloc)();
@@ -631,8 +631,8 @@ lem init_ref_RawVecInner<A>(l: *RawVecInner<A>)
     let ptr_ = (*l0).ptr;
     let cap_ = (*l0).cap;
     open [f]ref_initialized_::<A>(&(*l).alloc)();
-    std::ptr::init_ref_NonNull(&(*l).ptr, 1/2);
-    std::num::niche_types::init_ref_UsizeNoHighBit(&(*l).cap, 1/2);
+    init_ref_readonly(&(*l).ptr, 1/2);
+    init_ref_readonly(&(*l).cap, 1/2);
     init_ref_padding_RawVecInner(l, 1/2);
     {
         pred P() = ref_padding_initialized(l);
@@ -643,9 +643,9 @@ lem init_ref_RawVecInner<A>(l: *RawVecInner<A>)
     {
         pred Ctx() =
             [f/2]ref_initialized(&(*l).alloc) &*&
-            ref_padding_end_token(l, l0, f/2) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f/2]ref_padding_initialized(l) &*&
-            ref_end_token(&(*l).ptr, &(*l0).ptr, f/2) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f/2]ref_initialized(&(*l).ptr) &*&
-            std::num::niche_types::end_ref_UsizeNoHighBit_token(&(*l).cap, &(*l0).cap, f/2) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f/2]ref_initialized(&(*l).cap);
+            [f/2]ref_padding_end_token(l, l0) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f/2]ref_padding_initialized(l) &*&
+            [f/2]ref_end_token(&(*l).ptr, &(*l0).ptr) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f/2]ref_initialized(&(*l).ptr) &*&
+            [f/2]ref_end_token(&(*l).cap, &(*l0).cap) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f/2]ref_initialized(&(*l).cap);
         produce_lem_ptr_chunk frac_borrow_convert_strong(Ctx, scaledp(f/2, sep_(ref_initialized_(l), RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity))), klong, f, sep_(RawVecInner_frac_borrow_content(l0, elemLayout, ptr, capacity), ref_initialized_(&(*l).alloc)))() {
             open scaledp(f/2, sep_(ref_initialized_(l), RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)))();
             open sep_(ref_initialized_(l), RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity))();
@@ -653,8 +653,8 @@ lem init_ref_RawVecInner<A>(l: *RawVecInner<A>)
             open RawVecInner_frac_borrow_content::<A>(l, elemLayout, ptr, capacity)();
             open_ref_initialized_RawVecInner(l);
             open Ctx();
-            std::ptr::end_ref_NonNull(&(*l).ptr);
-            std::num::niche_types::end_ref_UsizeNoHighBit(&(*l).cap);
+            end_ref(&(*l).ptr);
+            end_ref(&(*l).cap);
             end_ref_padding_RawVecInner(l);
             close [f]RawVecInner_frac_borrow_content::<A>(l0, elemLayout, ptr, capacity)();
             close [f]ref_initialized_::<A>(&(*l).alloc)();
@@ -1306,9 +1306,9 @@ impl<T, A: Allocator> RawVec<T, A> {
             //@ let alloc_ref = precreate_ref(&(*me_ref1).inner.alloc);
             //@ init_ref_readonly(alloc_ref, 1/2);
             let alloc = ptr::read(&me.inner.alloc);
-            //@ end_ref_readonly(alloc_ref);
+            //@ end_ref(alloc_ref);
             //@ close_points_to(me_ref1, 1/2);
-            //@ end_ref_readonly(me_ref1);
+            //@ end_ref(me_ref1);
             //@ open_points_to(&me);
             //@ std::mem::array_at_lft__to_array_at_lft_MaybeUninit(slice as *T);
             //@ open RawVec(_, _, _, _, _);

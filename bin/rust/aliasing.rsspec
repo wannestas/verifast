@@ -19,8 +19,6 @@ lem_auto(ref_origin(ref_origin(p))) ref_origin_ref_origin(p: *_);
     req true;
     ens ref_origin(ref_origin(p)) == ref_origin(p);
 
-pred ref_mut_end_token<T>(p: *T; x: *T);
-
 pred ref_init_perm<T>(p: *T; x: *T);
 pred ref_padding_init_perm<T>(p: *T; x: *T);
 
@@ -28,8 +26,9 @@ lem_auto ref_init_perm_inv<T: ?Sized>();
     req ref_init_perm::<T>(?p, ?x);
     ens ref_init_perm::<T>(p, x) &*& ref_origin(p) == ref_origin(x);
 
-pred ref_end_token<T>(p: *T; x: *T, frac: real);
-pred ref_padding_end_token<T>(p: *T; x: *T, frac: real);
+// x is an input: fractions with different targets must not merge.
+pred ref_end_token<T>(p: *T, x: *T;);
+pred ref_padding_end_token<T>(p: *T, x: *T;);
 
 pred ref_initialized<T>(p: *T;);
 pred ref_padding_initialized<T>(p: *T;);
@@ -37,21 +36,19 @@ pred ref_padding_initialized<T>(p: *T;);
 pred_ctor ref_initialized_<T>(p: *T)(;) = ref_initialized(p);
 pred_ctor ref_padding_initialized_<T>(p: *T)(;) = ref_padding_initialized(p);
 
-pred ref_readonly_end_token<T>(p: *T, x: *T, f: real);
-
 lem init_ref_readonly<T>(p: *T, coef: real); // Use this if you don't need interior mutability.
     req ref_init_perm(p, ?x) &*& [?f](*x |-> ?v) &*& 0 < coef &*& coef < 1;
-    ens ref_readonly_end_token(p, x, coef*f) &*& [f*(1-coef)](*x |-> v) &*& [f*coef](*p |-> v) &*& ref_initialized(p);
+    ens [f*coef]ref_end_token(p, x) &*& [f*(1-coef)](*x |-> v) &*& [f*coef](*p |-> v) &*& ref_initialized(p);
 
-lem end_ref_readonly<T>(p: *T);
-    req ref_readonly_end_token(p, ?x, ?f) &*& [f](*p |-> ?v) &*& ref_initialized(p);
-    ens [f](*x |-> v);
+lem end_ref<T>(p: *T);
+    req [?q]ref_end_token::<T>(p, ?x) &*& [q](*p |-> ?v) &*& ref_initialized(p);
+    ens [q](*x |-> v);
 
 @*/
 
 fn create_ref_mut<T>(x: *T) -> *T;
 //@ req *x |-> ?v;
-//@ ens *result |-> v &*& ref_mut_end_token(result, x) &*& ref_origin(result) == result &*& (result as pointer).address == (x as pointer).address;
+//@ ens *result |-> v &*& ref_end_token(result, x) &*& ref_origin(result) == result &*& (result as pointer).address == (x as pointer).address;
 //@ on_unwind_ens false;
 
 fn reborrow_ref_mut_implicit<T>(x: *T) -> *T;
@@ -60,10 +57,6 @@ fn reborrow_ref_mut_implicit<T>(x: *T) -> *T;
 //@ on_unwind_ens false;
 
 /*@
-
-lem end_ref_mut<T>(p: *T);
-    req ref_mut_end_token(p, ?x) &*& *p |-> ?v;
-    ens *x |-> v;
 
 pred ref_precreated_token<T>(x: *T, p: *T);
 

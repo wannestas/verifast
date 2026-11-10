@@ -171,7 +171,7 @@ lem init_ref_Pair<A, B>(p: *Pair<A, B>)
         open [?fr]struct_Pair_padding_::<A, B>(x)();
         init_ref_padding_Pair(p, 1/2);
         {
-            pred Ctx() = ref_padding_end_token(p, x, fr/2) &*& [fr/2]struct_Pair_padding(x);
+            pred Ctx() = [fr/2]ref_padding_end_token(p, x) &*& [fr/2]struct_Pair_padding(x);
             produce_lem_ptr_chunk frac_borrow_convert_strong(Ctx, sep(scaledp(fr/2, struct_Pair_padding_(p)), ref_padding_initialized_(p)), k1, fr, struct_Pair_padding_(x))() {
                 open Ctx();
                 open sep(scaledp(fr/2, struct_Pair_padding_(p)), ref_padding_initialized_(p))();

@@ -606,7 +606,7 @@ lem LinkedList_share_mono<T, A>(k: lifetime_t, k1: lifetime_t, t: thread_id_t, l
 }
 
 pred ref_end_token_Option_NonNull<T>(p: *Option<NonNull<T>>, x: *Option<NonNull<T>>, f: real, v: Option<NonNull<T>>) =
-    [f/2](*x |-> v) &*& ref_end_token(p, x, f/2) &*& (if v != Option::None { ref_end_token(std::option::Option_Some_0_ptr(p), std::option::Option_Some_0_ptr(x), f/2) } else { true });
+    [f/2](*x |-> v) &*& [f/2]ref_end_token(p, x) &*& (if v != Option::None { [f/2]ref_end_token(std::option::Option_Some_0_ptr(p), std::option::Option_Some_0_ptr(x)) } else { true });
 
 lem init_ref_Option_NonNull<T>(p: *Option<NonNull<T>>)
     req ref_init_perm(p, ?x) &*& [?f](*x |-> ?v);
@@ -619,7 +619,7 @@ lem init_ref_Option_NonNull<T>(p: *Option<NonNull<T>>)
         Option::Some(v0) => {
             std::option::open_points_to_Option_Some(x);
             std::option::open_ref_init_perm_Option_Some(p);
-            std::ptr::init_ref_NonNull(std::option::Option_Some_0_ptr(p), 1/2);
+            init_ref_readonly(std::option::Option_Some_0_ptr(p), 1/2);
             std::option::init_ref_Option_Some(p, 1/2);
             std::option::close_points_to_Option_Some(p);
             std::option::close_points_to_Option_Some(x);
@@ -640,7 +640,7 @@ lem end_ref_Option_NonNull<T>(p: *Option<NonNull<T>>)
         Option::Some(v0) => {
             std::option::open_points_to_Option_Some(p);
             std::option::end_ref_Option_Some(p);
-            std::ptr::end_ref_NonNull(std::option::Option_Some_0_ptr(p));
+            end_ref(std::option::Option_Some_0_ptr(p));
             std::option::close_points_to_Option_Some(x);
         }
     }
@@ -663,7 +663,7 @@ lem init_ref_LinkedList<T, A>(p: *LinkedList<T, A>)
             init_ref_Option_NonNull(&(*p).head);
             init_ref_Option_NonNull(&(*p).tail);
             init_ref_padding_LinkedList(p, 1/2);
-            std::num::init_ref_usize(&(*p).len, 1/2);
+            init_ref_readonly(&(*p).len, 1/2);
             close [f/2]LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)();           
             close scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts))();
             close R();
@@ -672,8 +672,8 @@ lem init_ref_LinkedList<T, A>(p: *LinkedList<T, A>)
                     ref_end_token_Option_NonNull(&(*p).head, &(*x).head, f, head) &*&
                     ref_end_token_Option_NonNull(&(*p).tail, &(*x).tail, f, tail) &*&
                     [f/2]Nodes1(alloc_id, head, None, tail, None, nodes, prevs, nexts) &*&
-                    [f/2](*x).len |-> length(nodes) &*& ref_end_token(&(*p).len, &(*x).len, f/2) &*&
-                    [f/2]struct_LinkedList_padding(x) &*& ref_padding_end_token(p, x, f/2);
+                    [f/2](*x).len |-> length(nodes) &*& [f/2]ref_end_token(&(*p).len, &(*x).len) &*&
+                    [f/2]struct_LinkedList_padding(x) &*& [f/2]ref_padding_end_token(p, x);
                 close Ctx();
                 close sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), R)();
                 produce_lem_ptr_chunk frac_borrow_convert_strong(Ctx, sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), R), klong, f, LinkedList_frac_borrow_content::<T, A>(alloc_id, x, head, tail, nodes, prevs, nexts))() {
@@ -684,7 +684,7 @@ lem init_ref_LinkedList<T, A>(p: *LinkedList<T, A>)
                     open R();
                     end_ref_Option_NonNull(&(*p).head);
                     end_ref_Option_NonNull(&(*p).tail);
-                    std::num::end_ref_usize(&(*p).len);
+                    end_ref(&(*p).len);
                     end_ref_padding_LinkedList(p);
                     close [f]LinkedList_frac_borrow_content::<T, A>(alloc_id, x, head, tail, nodes, prevs, nexts)();
                 } {
@@ -2313,7 +2313,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
         //@ open_ref_init_perm_LinkedList(self_ref);
         //@ init_ref_Option_NonNull(&(*self_ref).head);
         //@ init_ref_Option_NonNull(&(*self_ref).tail);
-        //@ std::num::init_ref_usize(&(*self_ref).len, 1/2);
+        //@ init_ref_readonly(&(*self_ref).len, 1/2);
         //@ init_ref_padding_LinkedList(self_ref, 1/2);
         //@ let k1 = begin_lifetime();
         let len;
@@ -2328,7 +2328,7 @@ impl<T, A: Allocator> LinkedList<T, A> {
         //@ end_ref_Option_NonNull(&(*self_ref).head);
         //@ end_ref_Option_NonNull(&(*self_ref).tail);
         //@ std::alloc::end_ref_Allocator_at_lifetime::<A>();
-        //@ std::num::end_ref_usize(&(*self_ref).len);
+        //@ end_ref(&(*self_ref).len);
         //@ end_ref_padding_LinkedList(self_ref);
         
         //@ assert (*self).head |-> ?head &*& (*self).tail |-> ?tail &*& Nodes(?alloc_id, _, _, _, _, _);
@@ -2741,7 +2741,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
                             [f]ref_initialized(node_ref) &*&
                             [1-f]ref_initialized(&(*node_ref).next) &*&
                             [1-f]ref_initialized(&(*node_ref).prev) &*&
-                            ref_padding_end_token(node_ref, node0.as_ptr(), f/2) &*&
+                            [f/2]ref_padding_end_token(node_ref, node0.as_ptr()) &*&
                             [1-f]ref_padding_initialized::<Node<T>>(node_ref) &*&
                             [f]Nodes1(alloc_id, nodeNext, self0.head, self0.tail, next, tail(nodes), tail(prevs), tail(nexts)) &*&
                             [f]Nodes1(alloc_id, next, self0.tail, tail0, None, nodes_after, prevs_after, nexts_after);
@@ -3299,7 +3299,7 @@ impl<'a, T, A: Allocator> CursorMut<'a, T, A> {
                 //@ open_ref_init_perm_LinkedList(list_ref);
                 //@ init_ref_Option_NonNull(&(*list_ref).head);
                 //@ init_ref_Option_NonNull(&(*list_ref).tail);
-                //@ std::num::init_ref_usize(&(*list_ref).len, 1/2);
+                //@ init_ref_readonly(&(*list_ref).len, 1/2);
                 //@ init_ref_padding_LinkedList(list_ref, 1/2);
                 //@ let k1 = begin_lifetime();
                 let len;
@@ -3314,7 +3314,7 @@ impl<'a, T, A: Allocator> CursorMut<'a, T, A> {
                 //@ end_ref_Option_NonNull(&(*list_ref).head);
                 //@ end_ref_Option_NonNull(&(*list_ref).tail);
                 //@ std::alloc::end_ref_Allocator_at_lifetime::<A>();
-                //@ std::num::end_ref_usize(&(*list_ref).len);
+                //@ end_ref(&(*list_ref).len);
                 //@ end_ref_padding_LinkedList(list_ref);
                 
                 self.index = len.saturating_sub(1);
@@ -3353,7 +3353,7 @@ impl<'a, T, A: Allocator> CursorMut<'a, T, A> {
                 //@ open_ref_init_perm_LinkedList(list_ref);
                 //@ init_ref_Option_NonNull(&(*list_ref).head);
                 //@ init_ref_Option_NonNull(&(*list_ref).tail);
-                //@ std::num::init_ref_usize(&(*list_ref).len, 1/2);
+                //@ init_ref_readonly(&(*list_ref).len, 1/2);
                 //@ init_ref_padding_LinkedList(list_ref, 1/2);
                 //@ let k1 = begin_lifetime();
                 {
@@ -3400,7 +3400,7 @@ impl<'a, T, A: Allocator> CursorMut<'a, T, A> {
                 //@ end_ref_Option_NonNull(&(*list_ref).head);
                 //@ end_ref_Option_NonNull(&(*list_ref).tail);
                 //@ std::alloc::end_ref_Allocator_at_lifetime::<A>();
-                //@ std::num::end_ref_usize(&(*list_ref).len);
+                //@ end_ref(&(*list_ref).len);
                 //@ end_ref_padding_LinkedList(list_ref);
             },
         }
@@ -4058,9 +4058,9 @@ where
                     //@ open Nodes(?alloc_id, self1.it, ?prev, ?tail, None, ?nodes2);
                     
                     //@ let node_ref = precreate_ref(&node);
-                    //@ std::ptr::init_ref_NonNull(node_ref, 1/2);
+                    //@ init_ref_readonly(node_ref, 1/2);
                     self.it = node.as_ref().next;
-                    //@ std::ptr::end_ref_NonNull(node_ref);
+                    //@ end_ref(node_ref);
                     
                     self.idx += 1;
                     //@ ghost_cell_mutate(ghost_cell_id, pair((*self).it, (*self).idx));

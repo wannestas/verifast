@@ -7139,17 +7139,19 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
                   Static )
             in
             let ref_padding_end_token_asn =
-              Ast.CallExpr
+              Ast.CoefAsn
                 ( def_loc,
-                  "ref_padding_end_token",
-                  [],
-                  [],
-                  [
-                    LitPat (Var (def_loc, "p"));
-                    LitPat (Var (def_loc, "x"));
-                    LitPat f_times_coef;
-                  ],
-                  Static )
+                  LitPat f_times_coef,
+                  Ast.CallExpr
+                    ( def_loc,
+                      "ref_padding_end_token",
+                      [],
+                      [],
+                      [ 
+                        LitPat (Var (def_loc, "p")); 
+                        LitPat (Var (def_loc, "x")) 
+                        ],
+                      Static ) )
             in
             let post =
               Ast.Sep
@@ -7212,17 +7214,19 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
                   Static )
             in
             let ref_padding_end_token_asn =
-              Ast.CallExpr
+              Ast.CoefAsn
                 ( def_loc,
-                  "ref_padding_end_token",
-                  [],
-                  [],
-                  [
-                    LitPat (Var (def_loc, "p"));
-                    VarPat (def_loc, "x");
-                    VarPat (def_loc, "f");
-                  ],
-                  Static )
+                  VarPat (def_loc, "f"),
+                  Ast.CallExpr
+                    ( def_loc,
+                      "ref_padding_end_token",
+                      [],
+                      [],
+                      [ 
+                        LitPat (Var (def_loc, "p")); 
+                      VarPat (def_loc, "x") 
+                      ],
+                      Static ) )
             in
             let padding_asn coefpat l =
               Ast.CoefAsn

@@ -45,7 +45,7 @@ lem init_ref_readonly_points_to_shared<T>(l: *T)
     close scaledp(f/2, mk_points_to(l, v))();
     close sep_(ref_initialized_(l), scaledp(f/2, mk_points_to(l, v)))();
     {
-        pred Ctx() = ref_readonly_end_token(l, l0, f/2) &*& [f/2](*l0 |-> v);
+        pred Ctx() = [f/2]ref_end_token(l, l0) &*& [f/2](*l0 |-> v);
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(Ctx, sep_(ref_initialized_(l), scaledp(f/2, mk_points_to(l, v))), f, mk_points_to(l0, v))() {
             open Ctx();
@@ -53,7 +53,7 @@ lem init_ref_readonly_points_to_shared<T>(l: *T)
             open ref_initialized_::<T>(l)();
             open scaledp(f/2, mk_points_to(l, v))();
             open [f/2]mk_points_to::<T>(l, v)();
-            end_ref_readonly(l);
+            end_ref(l);
             close [f]mk_points_to::<T>(l0, v)();
         } {
             close_frac_borrow_strong_();
