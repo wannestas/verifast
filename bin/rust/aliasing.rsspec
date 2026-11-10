@@ -4,9 +4,6 @@
 
 /*@
 
-fix is_shared_ref_provenance(prov: pointer_provenance) -> bool;
-fix is_shared_ref(x: *_) -> bool { is_shared_ref_provenance((x as pointer).provenance) }
-
 fix ref_origin_provenance(prov: pointer_provenance) -> pointer_provenance;
 fix ref_origin<t>(p: *t) -> *t { pointer_ctor(ref_origin_provenance((p as pointer).provenance), (p as pointer).address, (p as pointer).metadata) as *t }
 
@@ -54,7 +51,7 @@ lem end_ref_readonly<T>(p: *T);
 
 fn create_ref_mut<T>(x: *T) -> *T;
 //@ req *x |-> ?v;
-//@ ens *result |-> v &*& ref_mut_end_token(result, x);
+//@ ens *result |-> v &*& ref_mut_end_token(result, x) &*& ref_origin(result) == result &*& (result as pointer).address == (x as pointer).address;
 //@ on_unwind_ens false;
 
 fn reborrow_ref_mut_implicit<T>(x: *T) -> *T;
@@ -68,19 +65,11 @@ lem end_ref_mut<T>(p: *T);
     req ref_mut_end_token(p, ?x) &*& *p |-> ?v;
     ens *x |-> v;
 
-lem end_ref_mut_<t>();
-    req ref_mut_end_token::<t>(?p, ?x) &*& *p |-> ?v;
-    ens *x |-> v;
-
 pred ref_precreated_token<T>(x: *T, p: *T);
 
 lem precreate_ref<T>(x: *T) -> *T;
    req true;
    ens ref_precreated_token(x, result) &*& ref_init_perm(result, x);
-
-lem reborrow_ref_<T>(x: *T); // Creating a shared reference from a shared reference is a no-op
-    req [?f]ref_initialized(x);
-    ens [f]ref_initialized(x) &*& ref_precreated_token(x, x);
 
 @*/
 
