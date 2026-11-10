@@ -1344,12 +1344,12 @@ mod boxed {
         ens init_ref_Box_in_token::<T, A>(t, p, fs, x, alloc_id, result, x_contents_ptr, f) &*& ref_init_perm::<T>(result, x_contents_ptr);
     
     lem init_ref_Box_in<T, A>(p: *Box<T, A>, coef: real);
-        req init_ref_Box_in_token::<T, A>(?t, p, ?fs, ?x, ?alloc_id, ?p_contents_ptr, ?x_contents_ptr, ?f) &*& ref_initialized::<T>(p_contents_ptr) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>((1-coef)*f, t, (1-coef)*fs, x, alloc_id, x_contents_ptr) &*& Box_minus_contents_in::<T, A>(coef*f, t, coef*fs, p, alloc_id, p_contents_ptr) &*& [coef*f]ref_end_token(p, x);
+        req init_ref_Box_in_token::<T, A>(?t, p, ?fs, ?x, ?alloc_id, ?p_contents_ptr, ?x_contents_ptr, ?f) &*& [coef*f]ref_initialized::<T>(p_contents_ptr) &*& 0 < coef &*& coef < 1;
+        ens [coef*f]ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>((1-coef)*f, t, (1-coef)*fs, x, alloc_id, x_contents_ptr) &*& Box_minus_contents_in::<T, A>(coef*f, t, coef*fs, p, alloc_id, p_contents_ptr) &*& [coef*f]ref_end_token(p, x);
     
     lem end_ref_Box_in<T, A>(p: *Box<T, A>);
-        req ref_initialized::<Box<T, A>>(p) &*& [?f]ref_end_token(p, ?x) &*& Box_minus_contents_in::<T, A>(f, ?t, ?fs, p, ?alloc_id, ?p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, ?x_contents_ptr);
-        ens Box_minus_contents_in::<T, A>(f, t, fs, x, alloc_id, _) &*& ref_initialized::<T>(p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, x_contents_ptr);
+        req [?f]ref_end_token(p, ?x) &*& [f]ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>(f, ?t, ?fs, p, ?alloc_id, ?p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, ?x_contents_ptr);
+        ens Box_minus_contents_in::<T, A>(f, t, fs, x, alloc_id, _) &*& [f]ref_initialized::<T>(p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, x_contents_ptr);
     
     @*/
 
@@ -1475,7 +1475,7 @@ mod option {
     
     lem init_ref_Option_None<T>(p: *Option<T>, coef: real);
         req ref_init_perm::<Option<T>>(p, ?x) &*& [?f](*x |-> Option::None) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized::<Option<T>>(p) &*& [coef*f]ref_end_token(p, x) &*& [(1-coef)*f](*x |-> Option::None) &*& [coef*f](*p |-> Option::None);
+        ens [coef*f]ref_initialized::<Option<T>>(p) &*& [coef*f]ref_end_token(p, x) &*& [(1-coef)*f](*x |-> Option::None) &*& [coef*f](*p |-> Option::None);
     
     pred init_ref_Option_Some_token<T>(p: *Option<T>, x: *Option<T>, frac: real);
     
@@ -1484,16 +1484,16 @@ mod option {
         ens init_ref_Option_Some_token::<T>(p, x, f) &*& ref_init_perm::<T>(Option_Some_0_ptr(p), Option_Some_0_ptr(x));
     
     lem init_ref_Option_Some<T>(p: *Option<T>, coef: real);
-        req init_ref_Option_Some_token::<T>(p, ?x, ?f) &*& ref_initialized::<T>(Option_Some_0_ptr(p)) &*& 0 < coef &*& coef < 1;
-        ens ref_initialized::<Option<T>>(p) &*& [(1-coef)*f]Option_Some::<T>(x) &*& [coef*f]Option_Some::<T>(p) &*& [coef*f]ref_end_token(p, x);
+        req init_ref_Option_Some_token::<T>(p, ?x, ?f) &*& [coef*f]ref_initialized::<T>(Option_Some_0_ptr(p)) &*& 0 < coef &*& coef < 1;
+        ens [coef*f]ref_initialized::<Option<T>>(p) &*& [(1-coef)*f]Option_Some::<T>(x) &*& [coef*f]Option_Some::<T>(p) &*& [coef*f]ref_end_token(p, x);
     
     lem end_ref_Option_None<T>(p: *Option<T>);
-        req ref_initialized::<Option<T>>(p) &*& [?f]ref_end_token(p, ?x) &*& [f](*p |-> Option::None);
+        req [?f]ref_end_token(p, ?x) &*& [f]ref_initialized::<Option<T>>(p) &*& [f](*p |-> Option::None);
         ens [f](*x |-> Option::None);
     
     lem end_ref_Option_Some<T>(p: *Option<T>);
-        req ref_initialized::<Option<T>>(p) &*& [?f]ref_end_token(p, ?x) &*& [f]Option_Some::<T>(p) &*& [f]ref_end_token::<T>(Option_Some_0_ptr(p), Option_Some_0_ptr(x));
-        ens [f]Option_Some::<T>(x) &*& ref_initialized::<T>(Option_Some_0_ptr(p)) &*& [f]ref_end_token::<T>(Option_Some_0_ptr(p), Option_Some_0_ptr(x));
+        req [?f]ref_end_token(p, ?x) &*& [f]ref_initialized::<Option<T>>(p) &*& [f]Option_Some::<T>(p) &*& [f]ref_end_token::<T>(Option_Some_0_ptr(p), Option_Some_0_ptr(x));
+        ens [f]Option_Some::<T>(x) &*& [f]ref_initialized::<T>(Option_Some_0_ptr(p)) &*& [f]ref_end_token::<T>(Option_Some_0_ptr(p), Option_Some_0_ptr(x));
     
     @*/
     

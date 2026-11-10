@@ -610,7 +610,7 @@ pred ref_end_token_Option_NonNull<T>(p: *Option<NonNull<T>>, x: *Option<NonNull<
 
 lem init_ref_Option_NonNull<T>(p: *Option<NonNull<T>>)
     req ref_init_perm(p, ?x) &*& [?f](*x |-> ?v);
-    ens [f/2](*p |-> v) &*& ref_initialized(p) &*& ref_end_token_Option_NonNull(p, x, f, v);
+    ens [f/2](*p |-> v) &*& [f/2]ref_initialized(p) &*& ref_end_token_Option_NonNull(p, x, f, v);
 {
     match v {
         Option::None => {
@@ -629,7 +629,7 @@ lem init_ref_Option_NonNull<T>(p: *Option<NonNull<T>>)
 }
 
 lem end_ref_Option_NonNull<T>(p: *Option<NonNull<T>>)
-    req ref_initialized(p) &*& ref_end_token_Option_NonNull(p, ?x, ?f, ?v) &*& [f/2](*p |-> v);
+    req ref_end_token_Option_NonNull(p, ?x, ?f, ?v) &*& [f/2]ref_initialized(p) &*& [f/2](*p |-> v);
     ens [f](*x |-> v);
 {
     open ref_end_token_Option_NonNull(p, x, f, v);
@@ -666,7 +666,8 @@ lem init_ref_LinkedList<T, A>(p: *LinkedList<T, A>)
             init_ref_readonly(&(*p).len, 1/2);
             close [f/2]LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)();           
             close scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts))();
-            close R();
+            close [f/2]R();
+            close scaledp(f/2, R)();
             {
                 pred Ctx() =
                     ref_end_token_Option_NonNull(&(*p).head, &(*x).head, f, head) &*&
@@ -675,13 +676,14 @@ lem init_ref_LinkedList<T, A>(p: *LinkedList<T, A>)
                     [f/2](*x).len |-> length(nodes) &*& [f/2]ref_end_token(&(*p).len, &(*x).len) &*&
                     [f/2]struct_LinkedList_padding(x) &*& [f/2]ref_padding_end_token(p, x);
                 close Ctx();
-                close sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), R)();
-                produce_lem_ptr_chunk frac_borrow_convert_strong(Ctx, sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), R), klong, f, LinkedList_frac_borrow_content::<T, A>(alloc_id, x, head, tail, nodes, prevs, nexts))() {
+                close sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), scaledp(f/2, R))();
+                produce_lem_ptr_chunk frac_borrow_convert_strong(Ctx, sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), scaledp(f/2, R)), klong, f, LinkedList_frac_borrow_content::<T, A>(alloc_id, x, head, tail, nodes, prevs, nexts))() {
                     open Ctx();
-                    open sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), R)();
+                    open sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), scaledp(f/2, R))();
                     open scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts))();
                     open [f/2]LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)();
-                    open R();
+                    open scaledp(f/2, R)();
+                    open [f/2]R();
                     end_ref_Option_NonNull(&(*p).head);
                     end_ref_Option_NonNull(&(*p).tail);
                     end_ref(&(*p).len);
@@ -689,11 +691,12 @@ lem init_ref_LinkedList<T, A>(p: *LinkedList<T, A>)
                     close [f]LinkedList_frac_borrow_content::<T, A>(alloc_id, x, head, tail, nodes, prevs, nexts)();
                 } {
                     close_frac_borrow_strong_m();
-                    full_borrow_mono(klong, k, sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), R));
-                    full_borrow_split_m(k, scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), R);
+                    full_borrow_mono(klong, k, sep(scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), scaledp(f/2, R)));
+                    full_borrow_split_m(k, scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)), scaledp(f/2, R));
                     full_borrow_into_frac_m(k, scaledp(f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts)));
                     frac_borrow_implies_scaled(k, f/2, LinkedList_frac_borrow_content::<T, A>(alloc_id, p, head, tail, nodes, prevs, nexts));
-                    full_borrow_into_frac_m(k, R);
+                    full_borrow_into_frac_m(k, scaledp(f/2, R));
+                    frac_borrow_implies_scaled(k, f/2, R);
                 }
             }
         }
@@ -2716,9 +2719,7 @@ impl<'a, T> Iterator for Iter<'a, T> {
                     //@ init_ref_Option_NonNull(&(*node_ref).prev);
                     //@ init_ref_Option_NonNull(&(*node_ref).next);
                     //@ init_ref_padding_Node(node_ref, 1/2);
-                    //@ close [1 - f]ref_padding_initialized_::<Node<T>>(node_ref)(); // We want to close only fraction f of ref_initialized(node_ref)
                     //@ close_ref_initialized_Node(node_ref);
-                    //@ open [1 - f]ref_padding_initialized_::<Node<T>>(node_ref)();
                     //@ let node0 = node;
                     //@ note(pointer_within_limits(&(*ref_origin(node0.as_ptr())).element));
                     let node = &*node.as_ptr();
@@ -2738,11 +2739,9 @@ impl<'a, T> Iterator for Iter<'a, T> {
                             [f/2]struct_Node_padding(node0.as_ptr()) &*&
                             [f/2](*node_ref).prev |-> prev &*& ref_end_token_Option_NonNull(&(*node_ref).prev, &(*node0.as_ptr()).prev, f, prev) &*&
                             [f/2](*node_ref).next |-> nodeNext &*& ref_end_token_Option_NonNull(&(*node_ref).next, &(*node0.as_ptr()).next, f, nodeNext) &*&
-                            [f]ref_initialized(node_ref) &*&
-                            [1-f]ref_initialized(&(*node_ref).next) &*&
-                            [1-f]ref_initialized(&(*node_ref).prev) &*&
+                            [f/2]ref_initialized(node_ref) &*&
+                            [f/2]ref_initialized(&(*node_ref).element) &*&
                             [f/2]ref_padding_end_token(node_ref, node0.as_ptr()) &*&
-                            [1-f]ref_padding_initialized::<Node<T>>(node_ref) &*&
                             [f]Nodes1(alloc_id, nodeNext, self0.head, self0.tail, next, tail(nodes), tail(prevs), tail(nexts)) &*&
                             [f]Nodes1(alloc_id, next, self0.tail, tail0, None, nodes_after, prevs_after, nexts_after);
                         close Ctx();
@@ -3362,9 +3361,11 @@ impl<'a, T, A: Allocator> CursorMut<'a, T, A> {
                     //@ close_ref_initialized_LinkedList(list_ref);
                     list = &*self.list;
                     
-                    //@ close ref_initialized_::<LinkedList<T, A>>(list_ref)();
-                    //@ borrow(k1, ref_initialized_::<LinkedList<T, A>>(list_ref));
-                    //@ full_borrow_into_frac(k1, ref_initialized_::<LinkedList<T, A>>(list_ref));
+                    //@ close [1/2]ref_initialized_::<LinkedList<T, A>>(list_ref)();
+                    //@ close scaledp(1/2, ref_initialized_::<LinkedList<T, A>>(list_ref))();
+                    //@ borrow(k1, scaledp(1/2, ref_initialized_::<LinkedList<T, A>>(list_ref)));
+                    //@ full_borrow_into_frac(k1, scaledp(1/2, ref_initialized_::<LinkedList<T, A>>(list_ref)));
+                    //@ frac_borrow_implies_scaled(k1, 1/2, ref_initialized_::<LinkedList<T, A>>(list_ref));
                 
                     let index2;
                     match index {
@@ -3394,8 +3395,9 @@ impl<'a, T, A: Allocator> CursorMut<'a, T, A> {
                     self.index = index2;
                 }
                 //@ end_lifetime(k1);
-                //@ borrow_end(k1, ref_initialized_(list_ref));
-                //@ open ref_initialized_::<LinkedList<T, A>>(list_ref)();
+                //@ borrow_end(k1, scaledp(1/2, ref_initialized_::<LinkedList<T, A>>(list_ref)));
+                //@ open scaledp(1/2, ref_initialized_::<LinkedList<T, A>>(list_ref))();
+                //@ open [1/2]ref_initialized_::<LinkedList<T, A>>(list_ref)();
                 //@ open_ref_initialized_LinkedList(list_ref);
                 //@ end_ref_Option_NonNull(&(*list_ref).head);
                 //@ end_ref_Option_NonNull(&(*list_ref).tail);

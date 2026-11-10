@@ -38,17 +38,17 @@ pred_ctor ref_padding_initialized_<T>(p: *T)(;) = ref_padding_initialized(p);
 
 lem init_ref_readonly<T>(p: *T, coef: real); // Use this if you don't need interior mutability.
     req ref_init_perm(p, ?x) &*& [?f](*x |-> ?v) &*& 0 < coef &*& coef < 1;
-    ens [f*coef]ref_end_token(p, x) &*& [f*(1-coef)](*x |-> v) &*& [f*coef](*p |-> v) &*& ref_initialized(p);
+    ens [f*coef]ref_end_token(p, x) &*& [f*(1-coef)](*x |-> v) &*& [f*coef](*p |-> v) &*& [f*coef]ref_initialized(p);
 
 lem end_ref<T>(p: *T);
-    req [?q]ref_end_token::<T>(p, ?x) &*& [q](*p |-> ?v) &*& ref_initialized(p);
+    req [?q]ref_end_token::<T>(p, ?x) &*& [q](*p |-> ?v) &*& [q]ref_initialized(p);
     ens [q](*x |-> v);
 
 @*/
 
 fn create_ref_mut<T>(x: *T) -> *T;
 //@ req *x |-> ?v;
-//@ ens *result |-> v &*& ref_end_token(result, x) &*& ref_origin(result) == result &*& (result as pointer).address == (x as pointer).address;
+//@ ens *result |-> v &*& ref_end_token(result, x) &*& ref_initialized(result) &*& ref_origin(result) == result &*& (result as pointer).address == (x as pointer).address;
 //@ on_unwind_ens false;
 
 fn reborrow_ref_mut_implicit<T>(x: *T) -> *T;

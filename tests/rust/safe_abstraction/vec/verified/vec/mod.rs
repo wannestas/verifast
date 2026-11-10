@@ -655,32 +655,28 @@ lem init_ref_Vec_<T, A>(l: *Vec<T, A>)
     open [f]Vec_frac_borrow_content::<T, A>(l0, length)();
     init_ref_readonly(&(*l).len, 1/2);
     init_ref_padding_Vec(l, 1/2);
-    {
-        pred P() = ref_padding_initialized(l);
-        close [1 - f]P();
-        close_ref_initialized_Vec(l);
-        open [1 - f]P();
-    }
-    close [f]ref_initialized_::<Vec<T, A>>(l)();
-    close scaledp(f, ref_initialized_(l))();
+    close_ref_initialized_Vec(l);
+    close [f/2]ref_initialized_::<Vec<T, A>>(l)();
+    close scaledp(f/2, ref_initialized_(l))();
     close [f/2]Vec_frac_borrow_content::<T, A>(l, length)();
     close scaledp(f/2, Vec_frac_borrow_content(l, length))();
-    close sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
+    close sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
     {
         pred Ctx() =
-            [f/2](*l0).len |-> length &*& [f/2]ref_end_token(&(*l).len, &(*l0).len) &*& [1 - f]ref_initialized(&(*l).len) &*&
-            [f/2]struct_Vec_padding(l0) &*& [f/2]ref_padding_end_token(l, l0) &*& [1 - f]ref_padding_initialized(l);
+            [f/2]ref_initialized(&(*l).buf) &*&
+            [f/2](*l0).len |-> length &*& [f/2]ref_end_token(&(*l).len, &(*l0).len) &*&
+            [f/2]struct_Vec_padding(l0) &*& [f/2]ref_padding_end_token(l, l0);
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(
             Ctx,
-            sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))),
+            sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))),
             f,
             sep_(ref_initialized_(&(*l).buf), Vec_frac_borrow_content(l0, length))
         )() {
             open Ctx();
-            open sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
-            open scaledp(f, ref_initialized_(l))();
-            open [f]ref_initialized_::<Vec<T, A>>(l)();
+            open sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
+            open scaledp(f/2, ref_initialized_(l))();
+            open [f/2]ref_initialized_::<Vec<T, A>>(l)();
             open scaledp(f/2, Vec_frac_borrow_content(l, length))();
             open [f/2]Vec_frac_borrow_content::<T, A>(l, length)();
             open_ref_initialized_Vec(l);
@@ -693,9 +689,9 @@ lem init_ref_Vec_<T, A>(l: *Vec<T, A>)
             close_frac_borrow_strong_();
         }
     }
-    full_borrow_into_frac(k, sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))));
-    frac_borrow_split(k, scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)));
-    frac_borrow_implies_scaled(k, f, ref_initialized_(l));
+    full_borrow_into_frac(k, sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))));
+    frac_borrow_split(k, scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)));
+    frac_borrow_implies_scaled(k, f/2, ref_initialized_(l));
     frac_borrow_implies_scaled(k, f/2, Vec_frac_borrow_content(l, length));
     ref_origin_min_addr((l as pointer).provenance);
     ref_origin_max_addr((l as pointer).provenance);
@@ -717,32 +713,28 @@ lem init_ref_Vec_m<T, A>(l: *Vec<T, A>)
     open [f]Vec_frac_borrow_content::<T, A>(l0, length)();
     init_ref_readonly(&(*l).len, 1/2);
     init_ref_padding_Vec(l, 1/2);
-    {
-        pred P() = ref_padding_initialized(l);
-        close [1 - f]P();
-        close_ref_initialized_Vec(l);
-        open [1 - f]P();
-    }
-    close [f]ref_initialized_::<Vec<T, A>>(l)();
-    close scaledp(f, ref_initialized_(l))();
+    close_ref_initialized_Vec(l);
+    close [f/2]ref_initialized_::<Vec<T, A>>(l)();
+    close scaledp(f/2, ref_initialized_(l))();
     close [f/2]Vec_frac_borrow_content::<T, A>(l, length)();
     close scaledp(f/2, Vec_frac_borrow_content(l, length))();
-    close sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
+    close sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
     {
         pred Ctx() =
-            [f/2](*l0).len |-> length &*& [f/2]ref_end_token(&(*l).len, &(*l0).len) &*& [1 - f]ref_initialized(&(*l).len) &*&
-            [f/2]struct_Vec_padding(l0) &*& [f/2]ref_padding_end_token(l, l0) &*& [1 - f]ref_padding_initialized(l);
+            [f/2]ref_initialized(&(*l).buf) &*&
+            [f/2](*l0).len |-> length &*& [f/2]ref_end_token(&(*l).len, &(*l0).len) &*&
+            [f/2]struct_Vec_padding(l0) &*& [f/2]ref_padding_end_token(l, l0);
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(
             Ctx,
-            sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))),
+            sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))),
             f,
             sep_(ref_initialized_(&(*l).buf), Vec_frac_borrow_content(l0, length))
         )() {
             open Ctx();
-            open sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
-            open scaledp(f, ref_initialized_(l))();
-            open [f]ref_initialized_::<Vec<T, A>>(l)();
+            open sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)))();
+            open scaledp(f/2, ref_initialized_(l))();
+            open [f/2]ref_initialized_::<Vec<T, A>>(l)();
             open scaledp(f/2, Vec_frac_borrow_content(l, length))();
             open [f/2]Vec_frac_borrow_content::<T, A>(l, length)();
             open_ref_initialized_Vec(l);
@@ -755,9 +747,9 @@ lem init_ref_Vec_m<T, A>(l: *Vec<T, A>)
             close_frac_borrow_strong__m();
         }
     }
-    full_borrow_into_frac_m(k, sep_(scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))));
-    frac_borrow_split(k, scaledp(f, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)));
-    frac_borrow_implies_scaled(k, f, ref_initialized_(l));
+    full_borrow_into_frac_m(k, sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length))));
+    frac_borrow_split(k, scaledp(f/2, ref_initialized_(l)), scaledp(f/2, Vec_frac_borrow_content(l, length)));
+    frac_borrow_implies_scaled(k, f/2, ref_initialized_(l));
     frac_borrow_implies_scaled(k, f/2, Vec_frac_borrow_content(l, length));
     ref_origin_min_addr((l as pointer).provenance);
     ref_origin_max_addr((l as pointer).provenance);

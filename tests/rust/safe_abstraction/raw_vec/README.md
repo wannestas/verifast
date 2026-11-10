@@ -539,26 +539,21 @@ We will now look at the part of the proof that initializes the shared reference 
     init_ref_readonly(&(*l).ptr, 1/2);
     init_ref_readonly(&(*l).cap, 1/2);
     init_ref_padding_RawVecInner(l, 1/2);
-    {
-        pred P() = ref_padding_initialized(l);
-        close [1 - f]P();
-        close_ref_initialized_RawVecInner(l);
-        open P();
-    }
+    close_ref_initialized_RawVecInner(l);
     close [f/2]RawVecInner_frac_borrow_content::<A>(l, elemLayout, ptr, capacity)();
     close scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity))();
-    close [f]ref_initialized_::<RawVecInner<A>>(l)();
-    close scaledp(f, ref_initialized_(l))();
-    close sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f, ref_initialized_(l)))();
+    close [f/2]ref_initialized_::<RawVecInner<A>>(l)();
+    close scaledp(f/2, ref_initialized_(l))();
+    close sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f/2, ref_initialized_(l)))();
 ```
 
 First, the proof converts the `ref_init_perm` for the RawVecInner object into a separate `ref_init_perm` for each of the fields (`ptr`, `cap`, and `alloc`), as well as a `ref_padding_init_perm`, giving permission to initialize the struct's padding bytes. For each struct S defined by the program, VeriFast introduces a lemma `open_ref_init_perm_S`, which performs this conversion.
 
 Then, it calls lemma [`init_ref_Allocator_share`](https://github.com/verifast/verifast/blob/c01806aa35cb4efb20b721a41611406acf0d784c/bin/rust/std/lib.rsspec#L881) to initialize the `alloc` field. This produces a `[_]frac_borrow(k, ref_initialized_(&(*l).alloc))` chunk, proving that this field has now been initialized, and will remain so until the end of lifetime `k`. Next, the proof calls lemma [`frac_borrow_sep`](https://github.com/verifast/verifast/blob/c01806aa35cb4efb20b721a41611406acf0d784c/bin/rust/rust_belt/lifetime_logic.rsspec#L318) to join the `[_]frac_borrow(k, RawVecInner_frac_borrow_content(l0, elemLayout, ptr, capacity))` chunk (obtained from the `RawVecInner_share_` chunk) and the `[_]frac_borrow(k, ref_initialized_(&(*l).alloc))` chunk into one `[_]frac_borrow(k, sep_(RawVecInner_frac_borrow_content(l0, elemLayout, ptr, capacity), ref_initialized_(&(*l).alloc)))` chunk (expressed using predicate constructor [`sep_`](https://github.com/verifast/verifast/blob/c01806aa35cb4efb20b721a41611406acf0d784c/bin/rust/rust_belt/lifetime_logic.rsspec#L312)). This is necessary because we need both of these payloads together to obtain the (fraction of a) `ref_initialized(l)` token that we need to produce (wrapped in a `frac_borrow`) to show that the RawVecInner object has been initialized. The proof then calls [`open_frac_borrow_strong_`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L346) to get fractional access at a fraction `f` to the combined payload, in a way that will allow the proof to specify a *different* payload predicate when closing the borrow back up.
 
-After opening the payload predicates, the proof stores the values of the `ptr` and `cap` fields into ghost variables, for use in assertions the second part of the proof. (Expressions that access resources are not allowed inside assertions.) Then, the proof uses lemma [`init_ref_readonly`](https://github.com/verifast/verifast/blob/c01806aa35cb4efb20b721a41611406acf0d784c/bin/rust/aliasing.rsspec#L45) to initialize the `ptr` and `cap` fields, and lemma `init_ref_padding_RawVecInner` to initialize the padding. (Such a lemma is introduced by VeriFast for each struct defined by the program.) Both lemmas take as an argument a coefficient C (which must be greater than 0 and less than 1) such that if a fraction `f` of the ownership of the original place is available, a fraction `C*f` is transferred to the reference being initialized. This enables read access through the new reference, and disables write access to the original place.
+After opening the payload predicates, the proof stores the values of the `ptr` and `cap` fields into ghost variables, for use in assertions the second part of the proof. (Expressions that access resources are not allowed inside assertions.) Then, the proof uses lemma [`init_ref_readonly`](https://github.com/verifast/verifast/blob/c01806aa35cb4efb20b721a41611406acf0d784c/bin/rust/aliasing.rsspec#L45) to initialize the `ptr` and `cap` fields, and lemma `init_ref_padding_RawVecInner` to initialize the padding. (Such a lemma is introduced by VeriFast for each struct defined by the program.) Both lemmas take as an argument a coefficient C (which must be greater than 0 and less than 1) such that if a fraction `f` of the ownership of the original place is available, a fraction `C*f` is transferred to the reference being initialized. This enables read access through the new reference, and disables write access to the original place. They also produce a fraction `C*f` of the new reference's `ref_initialized` (for the padding, `ref_padding_initialized`), which the matching end lemma (`end_ref`, `end_ref_padding_RawVecInner`) consumes again.
 
-At this point, the proof has the following resources (among others): `ref_initialized(&(*l).ptr)`, `ref_initialized(&(*l).cap)`, `[f]ref_initialized(&(*l).alloc)`, and `ref_padding_initialized(l)`. It then uses `close_ref_initialized_RawVecInner` to consume `[f]ref_initialized(&(*l).ptr)`, `[f]ref_initialized(&(*l).cap)`, `[f]ref_initialized(&(*l).alloc)`, and `[f]ref_padding_initialized(l)` and produce `[f]ref_initialized(l)`. (Such a lemma is introduced by VeriFast for each struct defined by the program.) However, this lemma takes the coefficient for the fractions to be produced and consumed from the coefficient of the `ref_padding_initialized` chunk it finds in the symbolic heap. Therefore, the proof needs to *hide* a fraction `1 - f` of the `ref_padding_initialized` chunk from this lemma. It does so by introducing a local predicate `P` and temporarily wrapping that fraction inside that predicate.
+At this point, the proof has the following resources (among others): `[f/2]ref_initialized(&(*l).ptr)`, `[f/2]ref_initialized(&(*l).cap)`, `[f]ref_initialized(&(*l).alloc)`, and `[f/2]ref_padding_initialized(l)`. It then uses `close_ref_initialized_RawVecInner` to consume `[f/2]` of each of these and produce `[f/2]ref_initialized(l)`. (Such a lemma is introduced by VeriFast for each struct defined by the program. It takes the coefficient for the fractions to be produced and consumed from the coefficient of the `ref_padding_initialized` chunk it finds in the symbolic heap.) The remaining `[f/2]ref_initialized(&(*l).alloc)` goes into the context predicate below.
 
 The proof then wraps up the payloads to be consumed when closing the fractured borrow into the appropriate payload predicates, but scaled by appropriate coefficients using predicate constructor [`scaledp`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L322).
 
@@ -567,19 +562,20 @@ The proof then wraps up the payloads to be consumed when closing the fractured b
 ```
     {
         pred Ctx() =
-            [f/2]ref_padding_end_token(l, l0) &*& [f/2]struct_RawVecInner_padding(l0) &*& [1 - f]ref_padding_initialized(l) &*&
-            [f/2]ref_end_token(&(*l).ptr, &(*l0).ptr) &*& [f/2](*l0).ptr |-> ptr_ &*& [1 - f]ref_initialized(&(*l).ptr) &*&
-            [f/2]ref_end_token(&(*l).cap, &(*l0).cap) &*& [f/2](*l0).cap |-> cap_ &*& [1 - f]ref_initialized(&(*l).cap);
+            [f/2]ref_initialized(&(*l).alloc) &*&
+            [f/2]ref_padding_end_token(l, l0) &*& [f/2]struct_RawVecInner_padding(l0) &*&
+            [f/2]ref_end_token(&(*l).ptr, &(*l0).ptr) &*& [f/2](*l0).ptr |-> ptr_ &*&
+            [f/2]ref_end_token(&(*l).cap, &(*l0).cap) &*& [f/2](*l0).cap |-> cap_;
         close Ctx();
         produce_lem_ptr_chunk restore_frac_borrow(
                 Ctx,
-                sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f, ref_initialized_(l))),
+                sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f/2, ref_initialized_(l))),
                 f,
                 sep_(RawVecInner_frac_borrow_content(l0, elemLayout, ptr, capacity), ref_initialized_(&(*l).alloc)))() {
-            open sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f, ref_initialized_(l)))();
+            open sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f/2, ref_initialized_(l)))();
             open scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity))();
             open RawVecInner_frac_borrow_content::<A>(l, elemLayout, ptr, capacity)();
-            open scaledp(f, ref_initialized_(l))();
+            open scaledp(f/2, ref_initialized_(l))();
             open ref_initialized_::<RawVecInner<A>>(l)();
             open Ctx();
             open_ref_initialized_RawVecInner(l);
@@ -593,10 +589,10 @@ The proof then wraps up the payloads to be consumed when closing the fractured b
             close_frac_borrow_strong_();
         }
     }
-    full_borrow_into_frac(k, sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f, ref_initialized_(l))));
-    frac_borrow_split(k, scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f, ref_initialized_(l)));
+    full_borrow_into_frac(k, sep_(scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f/2, ref_initialized_(l))));
+    frac_borrow_split(k, scaledp(f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity)), scaledp(f/2, ref_initialized_(l)));
     frac_borrow_implies_scaled(k, f/2, RawVecInner_frac_borrow_content(l, elemLayout, ptr, capacity));
-    frac_borrow_implies_scaled(k, f, ref_initialized_(l));
+    frac_borrow_implies_scaled(k, f/2, ref_initialized_(l));
     close RawVecInner_share_(k, t, l, elemLayout, alloc_id, ptr, capacity);
     leak RawVecInner_share_(k, t, l, elemLayout, alloc_id, ptr, capacity);
 }
@@ -606,7 +602,7 @@ The proof is now ready to call [`close_frac_borrow_strong_`](https://github.com/
 
 Lemma `close_frac_borrow_strong_` requires the restoring lemma to be proven. More specifically, it requires an `is_restore_frac_borrow` chunk, which serves as evidence that a lemma satisfying *lemma type* [`restore_frac_borrow`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L351) has been proven. More generally, an `is_T` predicate is introduced by VeriFast for each *lemma type* `T`. An `is_T` chunk can be produced using a `produce_lem_ptr_chunk T(lemTypeArgs)(lemParams) { Proof } { Client }` ghost command, specifying arguments `lemTypeArgs` for the lemma type parameters, parameter names `lemParams` for the lemma parameters, and two blocks of ghost code: a block `Proof` that proves a lemma that satisfies the lemma type, and a block `Client` that can use the `is_T` chunk. The `is_T` chunk is produced at the start of `Client` and consumed at the end. (Consuming the `is_T` chunk at the end of `Client` is necessary for preventing infinite recursion through lemma pointers.)
 
-The proof of the restoring lemma opens the payload predicates and the context predicate. It then calls `open_ref_initialized_RawVecInner` to turn the `[f]ref_initialized(l)` chunk back into chunks for the fields and for the padding. It then uses `end_ref` and `end_ref_padding_RawVecInner` to transfer the fractional ownership at `l` back to `l0`. At that point the original payload predicates can be closed up.
+The proof of the restoring lemma opens the payload predicates and the context predicate. It then calls `open_ref_initialized_RawVecInner` to turn the `[f/2]ref_initialized(l)` chunk back into chunks for the fields and for the padding. It then uses `end_ref` and `end_ref_padding_RawVecInner` to transfer the fractional ownership at `l` back to `l0`. At that point the original payload predicates can be closed up.
 
 The `Client` block of the `produce_lem_ptr_chunk` ghost command simply calls `close_frac_borrow_strong_`. This lemma produces a full borrow, which is turned into a fractured borrow using [`full_borrow_into_frac`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L262). The resulting fractured borrow is split into two using [`frac_borrow_split`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L314). At this point, the proof has two fractured borrows, each of whose payloads is scaled by some coefficient. The coefficients are dropped using lemma [`frac_borrow_implies_scaled`](https://github.com/verifast/verifast/blob/e829d5aaa295ed63b278e86ce694914f983f2d65/bin/rust/rust_belt/lifetime_logic.rsspec#L324).
 

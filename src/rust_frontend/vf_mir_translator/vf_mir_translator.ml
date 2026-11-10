@@ -7130,13 +7130,16 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
                 (def_loc, Mul, [ Var (def_loc, "f"); Var (def_loc, "coef") ])
             in
             let ref_padding_initialized_asn =
-              Ast.CallExpr
+              Ast.CoefAsn
                 ( def_loc,
-                  "ref_padding_initialized",
-                  [],
-                  [],
-                  [ LitPat (Var (def_loc, "p")) ],
-                  Static )
+                  LitPat f_times_coef,
+                  Ast.CallExpr
+                    ( def_loc,
+                      "ref_padding_initialized",
+                      [],
+                      [],
+                      [ LitPat (Var (def_loc, "p")) ],
+                      Static ) )
             in
             let ref_padding_end_token_asn =
               Ast.CoefAsn
@@ -7205,13 +7208,16 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
           in
           let end_ref_padding_lemma =
             let ref_padding_initialized_asn =
-              Ast.CallExpr
+              Ast.CoefAsn
                 ( def_loc,
-                  "ref_padding_initialized",
-                  [],
-                  [],
-                  [ LitPat (Var (def_loc, "p")) ],
-                  Static )
+                  LitPat (Var (def_loc, "f")),
+                  Ast.CallExpr
+                    ( def_loc,
+                      "ref_padding_initialized",
+                      [],
+                      [],
+                      [ LitPat (Var (def_loc, "p")) ],
+                      Static ) )
             in
             let ref_padding_end_token_asn =
               Ast.CoefAsn
@@ -7243,10 +7249,10 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
             let pre =
               Ast.Sep
                 ( def_loc,
-                  ref_padding_initialized_asn,
+                  ref_padding_end_token_asn,
                   Sep
                     ( def_loc,
-                      ref_padding_end_token_asn,
+                      ref_padding_initialized_asn,
                       padding_asn (LitPat (Var (def_loc, "f"))) "p" ) )
             in
             let post = padding_asn (LitPat (Var (def_loc, "f"))) "x" in

@@ -40,17 +40,19 @@ lem init_ref_readonly_points_to_shared<T>(l: *T)
     open_frac_borrow_strong_(k, mk_points_to(l0, v), q);
     open [?f]mk_points_to::<T>(l0, v)();
     init_ref_readonly(l, 1/2);
-    close ref_initialized_::<T>(l)();
+    close [f/2]ref_initialized_::<T>(l)();
+    close scaledp(f/2, ref_initialized_(l))();
     close [f/2]mk_points_to::<T>(l, v)();
     close scaledp(f/2, mk_points_to(l, v))();
-    close sep_(ref_initialized_(l), scaledp(f/2, mk_points_to(l, v)))();
+    close sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, mk_points_to(l, v)))();
     {
         pred Ctx() = [f/2]ref_end_token(l, l0) &*& [f/2](*l0 |-> v);
         close Ctx();
-        produce_lem_ptr_chunk restore_frac_borrow(Ctx, sep_(ref_initialized_(l), scaledp(f/2, mk_points_to(l, v))), f, mk_points_to(l0, v))() {
+        produce_lem_ptr_chunk restore_frac_borrow(Ctx, sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, mk_points_to(l, v))), f, mk_points_to(l0, v))() {
             open Ctx();
-            open sep_(ref_initialized_(l), scaledp(f/2, mk_points_to(l, v)))();
-            open ref_initialized_::<T>(l)();
+            open sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, mk_points_to(l, v)))();
+            open scaledp(f/2, ref_initialized_(l))();
+            open [f/2]ref_initialized_::<T>(l)();
             open scaledp(f/2, mk_points_to(l, v))();
             open [f/2]mk_points_to::<T>(l, v)();
             end_ref(l);
@@ -59,8 +61,9 @@ lem init_ref_readonly_points_to_shared<T>(l: *T)
             close_frac_borrow_strong_();
         }
     }
-    full_borrow_into_frac(k, sep_(ref_initialized_(l), scaledp(f/2, mk_points_to(l, v))));
-    frac_borrow_split(k, ref_initialized_(l), scaledp(f/2, mk_points_to(l, v)));
+    full_borrow_into_frac(k, sep_(scaledp(f/2, ref_initialized_(l)), scaledp(f/2, mk_points_to(l, v))));
+    frac_borrow_split(k, scaledp(f/2, ref_initialized_(l)), scaledp(f/2, mk_points_to(l, v)));
+    frac_borrow_implies_scaled(k, f/2, ref_initialized_(l));
     frac_borrow_implies_scaled(k, f/2, mk_points_to(l, v));
     close points_to_shared(k, l, v);
     leak points_to_shared(k, l, v);

@@ -290,13 +290,13 @@ lem open_ref_init_perm_Box_in<T, A>(p: *Box<T, A>) -> *T
 { assume(false); }
 
 lem init_ref_Box_in<T, A>(p: *Box<T, A>, coef: real)
-    req init_ref_Box_in_token::<T, A>(?t, p, ?fs, ?x, ?alloc_id, ?p_contents_ptr, ?x_contents_ptr, ?f) &*& ref_initialized::<T>(p_contents_ptr) &*& 0 < coef &*& coef < 1;
-    ens ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>((1-coef)*f, t, (1-coef)*fs, x, alloc_id, x_contents_ptr) &*& Box_minus_contents_in::<T, A>(coef*f, t, coef*fs, p, alloc_id, p_contents_ptr) &*& [coef*f]ref_end_token(p, x);
+    req init_ref_Box_in_token::<T, A>(?t, p, ?fs, ?x, ?alloc_id, ?p_contents_ptr, ?x_contents_ptr, ?f) &*& [coef*f]ref_initialized::<T>(p_contents_ptr) &*& 0 < coef &*& coef < 1;
+    ens [coef*f]ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>((1-coef)*f, t, (1-coef)*fs, x, alloc_id, x_contents_ptr) &*& Box_minus_contents_in::<T, A>(coef*f, t, coef*fs, p, alloc_id, p_contents_ptr) &*& [coef*f]ref_end_token(p, x);
 { assume(false); }
 
 lem end_ref_Box_in<T, A>(p: *Box<T, A>)
-    req ref_initialized::<Box<T, A>>(p) &*& [?f]ref_end_token(p, ?x) &*& Box_minus_contents_in::<T, A>(f, ?t, ?fs, p, ?alloc_id, ?p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, ?x_contents_ptr);
-    ens Box_minus_contents_in::<T, A>(f, t, fs, x, alloc_id, _) &*& ref_initialized::<T>(p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, x_contents_ptr);
+    req [?f]ref_end_token(p, ?x) &*& [f]ref_initialized::<Box<T, A>>(p) &*& Box_minus_contents_in::<T, A>(f, ?t, ?fs, p, ?alloc_id, ?p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, ?x_contents_ptr);
+    ens Box_minus_contents_in::<T, A>(f, t, fs, x, alloc_id, _) &*& [f]ref_initialized::<T>(p_contents_ptr) &*& [f]ref_end_token::<T>(p_contents_ptr, x_contents_ptr);
 { assume(false); }
 
 @*/
