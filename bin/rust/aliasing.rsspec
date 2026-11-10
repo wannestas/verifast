@@ -27,6 +27,7 @@ lem_auto ref_init_perm_inv<T: ?Sized>();
     ens ref_init_perm::<T>(p, x) &*& ref_origin(p) == ref_origin(x);
 
 // x is an input: fractions with different targets must not merge.
+// Notably this occurs when you only use part of a ref_end_token to merge it with another using the ref_end transitive lemma
 pred ref_end_token<T>(p: *T, x: *T;);
 pred ref_padding_end_token<T>(p: *T, x: *T;);
 
@@ -43,6 +44,14 @@ lem init_ref_readonly<T>(p: *T, coef: real); // Use this if you don't need inter
 lem end_ref<T>(p: *T);
     req [?q]ref_end_token::<T>(p, ?x) &*& [q](*p |-> ?v) &*& [q]ref_initialized(p);
     ens [q](*x |-> v);
+
+// Kind of nasty, but ensuring  there aren't multiple `ref_end_token<T>(p, ?x)` while having a ref_end_trans lemma seems even nastier
+lem end_ref_to<T>(p: *T, x: *T)
+    req [?q]ref_end_token::<T>(p, x) &*& [q](*p |-> ?v) &*& [q]ref_initialized(p);
+    ens [q](*x |-> v);
+{
+    end_ref(p);
+}
 
 @*/
 

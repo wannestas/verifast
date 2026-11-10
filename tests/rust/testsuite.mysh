@@ -20,6 +20,7 @@ verifast use_decls_in_modules.rs
 cd tree_borrows
   verifast -allow_should_fail -allow_dead_code end_ref_ri.rs
   verifast -allow_should_fail -allow_dead_code end_ref_payload_ri.rs
+  verifast -allow_should_fail -allow_dead_code end_ref_to.rs
 cd ..
 begin_sequential
 cd unverified
