@@ -53,6 +53,17 @@ lem end_ref_to<T>(child: *T, parent: *T)
     end_ref(child);
 }
 
+lem ref_end_token_trans<T>(child: *T);
+    req [?q]ref_end_token::<T>(child, ?parent) &*& [q]ref_end_token::<T>(parent, ?grandparent) &*& [q]ref_initialized(parent);
+    ens [q]ref_end_token::<T>(child, grandparent);
+
+lem ref_end_token_trans_to<T>(child: *T, parent: *T, grandparent: *T)
+    req [?q]ref_end_token::<T>(child, parent) &*& [q]ref_end_token::<T>(parent, grandparent) &*& [q]ref_initialized(parent);
+    ens [q]ref_end_token::<T>(child, grandparent);
+{
+    ref_end_token_trans(child);
+}
+
 @*/
 
 fn create_ref_mut<T>(parent: *T) -> *T;
