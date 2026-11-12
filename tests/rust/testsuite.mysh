@@ -21,6 +21,7 @@ cd tree_borrows
   verifast -allow_should_fail -allow_dead_code end_ref_ri.rs
   verifast -allow_should_fail -allow_dead_code end_ref_payload_ri.rs
   verifast -allow_should_fail -allow_dead_code end_ref_to.rs
+  verifast -allow_should_fail -allow_dead_code protect_lemmas.rs
   verifast -allow_should_fail -allow_dead_code ref_end_token_trans.rs
 cd ..
 begin_sequential

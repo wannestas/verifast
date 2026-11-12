@@ -84,6 +84,70 @@ lem precreate_ref<T>(parent: *T) -> *T;
    req true;
    ens ref_precreated_token(parent, result) &*& ref_init_perm(result, parent);
 
+pred ref_protector<T>(child: *T, parent: *T, q: real;);
+pred ref_padding_protector<T>(child: *T, parent: *T, q: real;);
+
+lem lock_ref<T>(child: *T);
+    req [?q]ref_end_token::<T>(child, ?parent);
+    ens ref_protector::<T>(child, parent, q);
+
+lem unprotect_ref<T>(child: *T);
+    req ref_protector::<T>(child, ?parent, ?q);
+    ens [q]ref_end_token::<T>(child, parent);
+
+lem lock_ref_padding<T>(child: *T);
+    req [?q]ref_padding_end_token::<T>(child, ?parent);
+    ens ref_padding_protector::<T>(child, parent, q);
+
+lem unprotect_ref_padding<T>(child: *T);
+    req ref_padding_protector::<T>(child, ?parent, ?q);
+    ens [q]ref_padding_end_token::<T>(child, parent);
+
+lem protect_ref_mut<T>(parent: *T) -> *T;
+    req points_to_::<T>(parent, ?v);
+    ens points_to_::<T>(result, v) &*& ref_protector::<T>(result, parent, 1) &*& ref_initialized::<T>(result) &*&
+        ref_origin(result) == result &*& (result as pointer).address == (parent as pointer).address &*&
+        pointer_within_limits(result) == pointer_within_limits(parent);
+
+lem protect_ref<T>(parent: *T, coef: real) -> *T
+    req [?f](*parent |-> ?v) &*& 0 < coef &*& coef < 1;
+    ens [f*(1-coef)](*parent |-> v) &*& [f*coef](*result |-> v) &*& ref_protector::<T>(result, parent, f*coef) &*&
+        [f*coef]ref_initialized::<T>(result) &*& ref_origin(result) == ref_origin(parent) &*&
+        pointer_within_limits(result) == pointer_within_limits(parent);
+{
+    let child = precreate_ref(parent);
+    init_ref_readonly(child, coef);
+    lock_ref(child);
+    leak ref_precreated_token(parent, child);
+    ref_origin_min_addr((child as pointer).provenance);
+    ref_origin_max_addr((child as pointer).provenance);
+    ref_origin_min_addr((parent as pointer).provenance);
+    ref_origin_max_addr((parent as pointer).provenance);
+    return child;
+}
+
+lem retag_ref_mut<T>(parent: *T) -> *T
+    req points_to_::<T>(parent, ?v);
+    ens points_to_::<T>(result, v) &*& ref_end_token::<T>(result, parent) &*& ref_initialized::<T>(result) &*&
+        ref_origin(result) == result &*& (result as pointer).address == (parent as pointer).address &*&
+        pointer_within_limits(result) == pointer_within_limits(parent);
+{
+    let child = protect_ref_mut(parent);
+    unprotect_ref(child);
+    return child;
+}
+
+lem retag_ref<T>(parent: *T, coef: real) -> *T
+    req [?f](*parent |-> ?v) &*& 0 < coef &*& coef < 1;
+    ens [f*(1-coef)](*parent |-> v) &*& [f*coef](*result |-> v) &*& [f*coef]ref_end_token::<T>(result, parent) &*&
+        [f*coef]ref_initialized::<T>(result) &*& ref_origin(result) == ref_origin(parent) &*&
+        pointer_within_limits(result) == pointer_within_limits(parent);
+{
+    let child = protect_ref(parent, coef);
+    unprotect_ref(child);
+    return child;
+}
+
 @*/
 
 fn create_ref<T>(parent: *T) -> *T;
