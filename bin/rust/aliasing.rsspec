@@ -121,8 +121,6 @@ lem protect_ref<T>(parent: *T, coef: real) -> *T
     leak ref_precreated_token(parent, child);
     ref_origin_min_addr((child as pointer).provenance);
     ref_origin_max_addr((child as pointer).provenance);
-    ref_origin_min_addr((parent as pointer).provenance);
-    ref_origin_max_addr((parent as pointer).provenance);
     return child;
 }
 
