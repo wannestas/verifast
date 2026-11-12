@@ -23,6 +23,9 @@ cd tree_borrows
   verifast -allow_should_fail -allow_dead_code end_ref_to.rs
   verifast -allow_should_fail -allow_dead_code protect_lemmas.rs
   verifast -allow_should_fail -allow_dead_code ref_end_token_trans.rs
+  verifast -allow_assume protection_obligation.rs
+  verifast -allow_assume -allow_should_fail -allow_dead_code protection_obligation_fails.rs
+  verifast -allow_assume -allow_should_fail -allow_dead_code protection_obligation_stash.rs
 cd ..
 begin_sequential
 cd unverified
