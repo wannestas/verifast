@@ -19,17 +19,17 @@ lem_auto(ref_origin(ref_origin(p))) ref_origin_ref_origin(p: *_);
     req true;
     ens ref_origin(ref_origin(p)) == ref_origin(p);
 
-pred ref_init_perm<T>(p: *T; x: *T);
-pred ref_padding_init_perm<T>(p: *T; x: *T);
+pred ref_init_perm<T>(child: *T; parent: *T);
+pred ref_padding_init_perm<T>(child: *T; parent: *T);
 
 lem_auto ref_init_perm_inv<T: ?Sized>();
-    req ref_init_perm::<T>(?p, ?x);
-    ens ref_init_perm::<T>(p, x) &*& ref_origin(p) == ref_origin(x);
+    req ref_init_perm::<T>(?child, ?parent);
+    ens ref_init_perm::<T>(child, parent) &*& ref_origin(child) == ref_origin(parent);
 
-// x is an input: fractions with different targets must not merge.
+// parent is an input: fractions with different parents must not merge.
 // Notably this occurs when you only use part of a ref_end_token to merge it with another using the ref_end transitive lemma
-pred ref_end_token<T>(p: *T, x: *T;);
-pred ref_padding_end_token<T>(p: *T, x: *T;);
+pred ref_end_token<T>(child: *T, parent: *T;);
+pred ref_padding_end_token<T>(child: *T, parent: *T;);
 
 pred ref_initialized<T>(p: *T;);
 pred ref_padding_initialized<T>(p: *T;);
@@ -37,27 +37,27 @@ pred ref_padding_initialized<T>(p: *T;);
 pred_ctor ref_initialized_<T>(p: *T)(;) = ref_initialized(p);
 pred_ctor ref_padding_initialized_<T>(p: *T)(;) = ref_padding_initialized(p);
 
-lem init_ref_readonly<T>(p: *T, coef: real); // Use this if you don't need interior mutability.
-    req ref_init_perm(p, ?x) &*& [?f](*x |-> ?v) &*& 0 < coef &*& coef < 1;
-    ens [f*coef]ref_end_token(p, x) &*& [f*(1-coef)](*x |-> v) &*& [f*coef](*p |-> v) &*& [f*coef]ref_initialized(p);
+lem init_ref_readonly<T>(child: *T, coef: real); // Use this if you don't need interior mutability.
+    req ref_init_perm(child, ?parent) &*& [?f](*parent |-> ?v) &*& 0 < coef &*& coef < 1;
+    ens [f*coef]ref_end_token(child, parent) &*& [f*(1-coef)](*parent |-> v) &*& [f*coef](*child |-> v) &*& [f*coef]ref_initialized(child);
 
-lem end_ref<T>(p: *T);
-    req [?q]ref_end_token::<T>(p, ?x) &*& [q](*p |-> ?v) &*& [q]ref_initialized(p);
-    ens [q](*x |-> v);
+lem end_ref<T>(child: *T);
+    req [?q]ref_end_token::<T>(child, ?parent) &*& [q](*child |-> ?v) &*& [q]ref_initialized(child);
+    ens [q](*parent |-> v);
 
-// Kind of nasty, but ensuring  there aren't multiple `ref_end_token<T>(p, ?x)` while having a ref_end_trans lemma seems even nastier
-lem end_ref_to<T>(p: *T, x: *T)
-    req [?q]ref_end_token::<T>(p, x) &*& [q](*p |-> ?v) &*& [q]ref_initialized(p);
-    ens [q](*x |-> v);
+// Kind of nasty, but ensuring  there aren't multiple `ref_end_token<T>(child, ?parent)` while having a ref_end_trans lemma seems even nastier
+lem end_ref_to<T>(child: *T, parent: *T)
+    req [?q]ref_end_token::<T>(child, parent) &*& [q](*child |-> ?v) &*& [q]ref_initialized(child);
+    ens [q](*parent |-> v);
 {
-    end_ref(p);
+    end_ref(child);
 }
 
 @*/
 
-fn create_ref_mut<T>(x: *T) -> *T;
-//@ req *x |-> ?v;
-//@ ens *result |-> v &*& ref_end_token(result, x) &*& ref_initialized(result) &*& ref_origin(result) == result &*& (result as pointer).address == (x as pointer).address;
+fn create_ref_mut<T>(parent: *T) -> *T;
+//@ req *parent |-> ?v;
+//@ ens *result |-> v &*& ref_end_token(result, parent) &*& ref_initialized(result) &*& ref_origin(result) == result &*& (result as pointer).address == (parent as pointer).address;
 //@ on_unwind_ens false;
 
 fn reborrow_ref_mut_implicit<T>(x: *T) -> *T;
@@ -67,17 +67,17 @@ fn reborrow_ref_mut_implicit<T>(x: *T) -> *T;
 
 /*@
 
-pred ref_precreated_token<T>(x: *T, p: *T);
+pred ref_precreated_token<T>(parent: *T, child: *T);
 
-lem precreate_ref<T>(x: *T) -> *T;
+lem precreate_ref<T>(parent: *T) -> *T;
    req true;
-   ens ref_precreated_token(x, result) &*& ref_init_perm(result, x);
+   ens ref_precreated_token(parent, result) &*& ref_init_perm(result, parent);
 
 @*/
 
-fn create_ref<T>(x: *T) -> *T;
-//@ req ref_precreated_token(x, ?p) &*& [?f]ref_initialized(p);
-//@ ens [f]ref_initialized(p) &*& result == p &*& ref_origin(result) == ref_origin(x);
+fn create_ref<T>(parent: *T) -> *T;
+//@ req ref_precreated_token(parent, ?child) &*& [?f]ref_initialized(child);
+//@ ens [f]ref_initialized(child) &*& result == child &*& ref_origin(result) == ref_origin(parent);
 //@ on_unwind_ens false;
 
 fn reborrow_ref<T>(x: *T) -> *T;
