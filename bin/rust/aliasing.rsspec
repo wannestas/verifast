@@ -26,8 +26,7 @@ lem_auto ref_init_perm_inv<T: ?Sized>();
     req ref_init_perm::<T>(?child, ?parent);
     ens ref_init_perm::<T>(child, parent) &*& ref_origin(child) == ref_origin(parent);
 
-// parent is an input: fractions with different parents must not merge.
-// Notably this occurs when you only use part of a ref_end_token to merge it with another using the ref_end transitive lemma
+// parent is an input: using the ref_end_token_trans lemma it's possible to have e.g. a fraction of this token for both child<->parent and a fraction child<->grandparent, which would break if `parent` was an output, sadly
 pred ref_end_token<T>(child: *T, parent: *T;);
 pred ref_padding_end_token<T>(child: *T, parent: *T;);
 
@@ -45,7 +44,7 @@ lem end_ref<T>(child: *T);
     req [?q]ref_end_token::<T>(child, ?parent) &*& [q](*child |-> ?v) &*& [q]ref_initialized(child);
     ens [q](*parent |-> v);
 
-// Kind of nasty, but ensuring  there aren't multiple `ref_end_token<T>(child, ?parent)` while having a ref_end_trans lemma seems even nastier
+// Kind of nasty, but ensuring  there aren't multiple `ref_end_token<T>(child, ?parent)` while having a ref_end_token_trans lemma seems even nastier
 lem end_ref_to<T>(child: *T, parent: *T)
     req [?q]ref_end_token::<T>(child, parent) &*& [q](*child |-> ?v) &*& [q]ref_initialized(child);
     ens [q](*parent |-> v);
