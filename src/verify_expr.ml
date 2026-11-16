@@ -237,29 +237,32 @@ module VerifyExpr(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
     let env0 = tparam_typeid_env @ currentThreadEnv @ env0_0 @ cenv0 in
     produce_asn_with_post tparam_typeid_env tpenv0 [] [] env0 pre0 real_unit None None (fun h _ env0 post0_opt ->
       let (result_var0, post0) = match post0_opt with Some post0 -> post0 | None -> post0 in
-      let bs = zip2 xmap env0_0 in
-      let env = tparam_typeid_env @ currentThreadEnv @ List.map (fun ((p, _), (p0, v)) -> (p, v)) bs @ env00 in
+      let args0 = List.map snd env0_0 in
+      let env_of args = tparam_typeid_env @ currentThreadEnv @ List.map (fun ((p, _), v) -> (p, v)) (zip2 xmap args) @ env00 in
       begin match pre with
         ExprAsn (la, False lf) when la == l ->
-        assert_false h env l "Contract required" None
+        assert_false h (env_of args0) l "Contract required" None
       | _ -> ()
       end;
-      prolog h env0 @@ fun h epilog ->
-      consume_asn_with_post rules tpenv h tparam_typeid_env [] env pre true real_unit (fun _ h _ env _ post_opt ->
+      prolog h env0 args0 @@ fun h args epilog ->
+      assert (List.length args = List.length args0);
+      consume_asn_with_post rules tpenv h tparam_typeid_env [] (env_of args) pre true real_unit (fun _ h _ env _ post_opt ->
         let (result_var, post) = match post_opt with Some post -> post | None -> post in
-        let (result, env, env0) =
+        let (result, env) =
           match rt with
-            None -> (None, env, env0)
-          | Some t -> let result = get_unique_var_symb result_var t in (Some result, (result_var, result)::env, (result_var0, result)::env0)
+            None -> (None, env)
+          | Some t -> let result = get_unique_var_symb result_var t in (Some result, (result_var, result)::env)
         in
+        let env0_with result = match result with None -> env0 | Some result -> (result_var0, result)::env0 in
         execute_branch begin fun () ->
           produce_asn tparam_typeid_env tpenv h [] env post real_unit None None (fun h _ _ ->
-            epilog h result @@ fun h ->
-            consume_asn rules tpenv0 h tparam_typeid_env [] env0 post0 true real_unit (fun _ h _ env0 _ ->
+            epilog h result @@ fun h result ->
+            consume_asn rules tpenv0 h tparam_typeid_env [] (env0_with result) post0 true real_unit (fun _ h _ env0 _ ->
               check_leaks h env0 l (msg ^ "Implementation leaks heap chunks")
             )
           )
         end;
+        let env0 = env0_with result in
         epost |> List.iter begin fun (exceptp, epost) ->
           if not (is_unchecked_exception_type exceptp) then
             execute_branch begin fun () ->
@@ -292,8 +295,8 @@ module VerifyExpr(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
     end
   
   let check_func_header_compat l msg0 msg env00 (k, tparams, rt, xmap, nonghost_callers_only, pre, post, epost, terminates) (k0, tparams0, rt0, xmap0, nonghost_callers_only0, tpenv0, cenv0, pre0, post0, epost0, terminates0) =
-    let epilog h result cont = cont h in
-    let prolog h env cont = cont h epilog in
+    let epilog h result cont = cont h result in
+    let prolog h env args cont = cont h args epilog in
     check_func_header_compat_core l l msg0 msg env00 (k, tparams, rt, xmap, nonghost_callers_only, pre, post, epost, terminates) (k0, tparams0, rt0, xmap0, nonghost_callers_only0, tpenv0, cenv0, pre0, post0, epost0, terminates0) prolog
   
   (** Adds the assumption of the form "is_x(y) == true" to the set

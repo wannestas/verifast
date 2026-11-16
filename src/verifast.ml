@@ -3998,8 +3998,8 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
         let prolog, lproof_end =
           match prototypeImplementationProof_opt with
             None ->
-            let epilog h result cont = cont h in
-            let prolog h env cont = cont h epilog in
+            let epilog h result cont = cont h result in
+            let prolog h env args cont = cont h args epilog in
             prolog, l
           | Some (lproof, ss, lproof_end) ->
             let pure = true in
@@ -4010,12 +4010,13 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
             in
             let return_cont _ _ = assert_false [] [] lproof "Return statements are not allowed in this position" None in
             let econt _ _ _ _ = assert_false [] [] lproof "Exceptions are not allowed in this position" None in
-            let call lc tenv ghostenv h env x ss cont =
+            let call lc tenv ghostenv h env args x ss cont =
               let epilog tenv ghostenv h env ss cont =
                 let cont sizemap tenv ghostenv h env = cont h in
                 verify_cont (pn,ilist) [] [] tparams0 boxes pure leminfo funcmap predinstmap [] tenv ghostenv h env ss cont return_cont econt
               in
               let epilog h result cont =
+                let cont h = cont h result in
                 with_context PopSubcontext @@ fun () ->
                 match result, x with
                   _, None -> epilog tenv ghostenv h env ss cont
@@ -4027,14 +4028,14 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
               in
               with_context (Executing (h, env, lc, "Verifying call")) @@ fun () ->
               with_context PushSubcontext @@ fun () ->
-              cont h epilog
+              cont h args epilog
             in
-            let prolog h env cont =
+            let prolog h env args cont =
               let rec iter tenv ghostenv h env ss =
                 match ss with
                   [] -> static_error lproof "Missing 'call()' statement." None
                 | ExprStmt (CallExpr (lc, "call", [], [], [], Static))::ss ->
-                  call lc tenv ghostenv h env None ss cont
+                  call lc tenv ghostenv h env args None ss cont
                 | DeclStmt (ld, [lx, tx, x, Some (CallExpr (lc, "call", [], [], [], Static)), _])::ss ->
                   if List.mem_assoc x tenv then static_error lc "Duplicate variable name." None;
                   let t = option_map (check_pure_type (pn,ilist) tparams0 Ghost) tx in
@@ -4046,7 +4047,7 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
                       t
                     | None, Some rt -> rt
                   in
-                  call lc tenv ghostenv h env (Some (x, t)) ss cont
+                  call lc tenv ghostenv h env args (Some (x, t)) ss cont
                 | s::ss ->
                   with_context (Executing (h, env, stmt_loc s, "Executing statement")) @@ fun () ->
                   verify_stmt (pn, ilist) [] [] tparams0 boxes pure leminfo funcmap predinstmap [] tenv ghostenv h env s (fun sizemap tenv ghostenv h env -> iter tenv ghostenv h env ss) return_cont econt
