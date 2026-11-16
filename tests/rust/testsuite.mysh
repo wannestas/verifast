@@ -28,6 +28,9 @@ cd tree_borrows
   verifast -allow_assume -allow_should_fail -allow_dead_code protection_obligation_stash.rs
   verifast -ignore_unwind_paths -skip_specless_fns proof_clause_assign_param.rs
   verifast -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code proof_clause_assign_result.rs
+  [ "$(verifast -check_protectors check_protectors_flag.rs)" = $'-check_protectors: unwind paths are not yet supported; use -ignore_unwind_paths' ]
+  [ "$(verifast -read_options_from_source_file check_protectors_flag.rs)" = $'-check_protectors: unwind paths are not yet supported; use -ignore_unwind_paths' ]
+  verifast -read_options_from_source_file -ignore_unwind_paths check_protectors_flag.rs
 cd ..
 begin_sequential
 cd unverified

@@ -4370,6 +4370,8 @@ Qed.
           end
         )
         in
+        if Vfbindings.get Vfparam_check_protectors vfbindings && not (Vfbindings.get Vfparam_ignore_unwind_paths vfbindings) then
+          raise (CompilationError "-check_protectors: unwind paths are not yet supported; use -ignore_unwind_paths");
         try
           RustFe.parse_rs_file rustc_args extern_specs path
         with
