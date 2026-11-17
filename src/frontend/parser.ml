@@ -110,7 +110,7 @@ let rust_ghost_keywords = [
   "producing_box_pred"; "producing_handle_pred"; "producing_fresh_handle_pred"; "handle"; "any"; "split_fraction"; "by"; "merge_fractions";
   "unloadable_module"; "decreases"; "forall_"; "import_module"; "require_module"; ".."; "extends"; "permbased";
   "terminates"; "abstract_type"; "fix_auto"; "typeid"; "activating"; "truncating"; "typedef"; "fn_type"; "lem_type";
-  "type_pred_decl"; "type_pred_def"; "let_lft"; "on_unwind_ens"; "safety_proof"
+  "type_pred_decl"; "type_pred_def"; "let_lft"; "on_unwind_ens"; "safety_proof"; "protection_proof"
 ]
 
 let java_keywords = [
@@ -222,6 +222,7 @@ type spec_clause = (* ?spec_clause *)
 | TerminatesClause of loc
 | AssumeCorrectClause of loc
 | PrototypeImplementationProofClause of loc * stmt list * loc
+| ProtectionProofClause of loc * stmt list * loc
 
 let next_body_rank =
   let counter = ref 0 in

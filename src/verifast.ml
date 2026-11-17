@@ -3985,7 +3985,14 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
       let g = full_name pn g in
       let gs', lems' =
       record_fun_timing l g begin fun () ->
-      let FuncInfo ([], fterm, l, k, tparams', rt, ps, nonghost_callers_only, pre, pre_tenv, post, terminates, (_, (prototype_opt, prototypeImplementationProof_opt)), Some (Some (const_params, (ss, closeBraceLoc))), is_virtual, overrides) = List.assoc g funcmap in
+      let FuncInfo ([], fterm, l, k, tparams', rt, ps, nonghost_callers_only, pre, pre_tenv, post, terminates, (_, (prototype_opt, proof_clauses_opt)), Some (Some (const_params, (ss, closeBraceLoc))), is_virtual, overrides) = List.assoc g funcmap in
+      let {safety_proof = prototypeImplementationProof_opt; protection_proof = protectionProof_opt} =
+        Option.value proof_clauses_opt ~default:no_proof_clauses
+      in
+      begin match protectionProof_opt with
+        Some (lpp, _, _) -> static_error lpp "-check_protectors: protection_proof clauses are not yet supported" None
+      | None -> ()
+      end;
       push_tparam_bounds_table ();
       begin match prototype_opt, prototypeImplementationProof_opt with
         None, None -> ()
@@ -4366,6 +4373,7 @@ Qed.
             let allow_ignore_ref_creation = allow_ignore_ref_creation
             let ignore_ref_creation = Vfbindings.get Vfparam_ignore_ref_creation vfbindings
             let ignore_unwind_paths = Vfbindings.get Vfparam_ignore_unwind_paths vfbindings
+            let check_protectors = Vfbindings.get Vfparam_check_protectors vfbindings
             let rocq_writer = rocq_writer
           end
         )

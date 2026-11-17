@@ -1001,7 +1001,7 @@ and
       bool (* nonghost_callers_only *) *
       (
         (string * type_expr list * (loc * string) list) option (* implemented function type, with function type type arguments and function type arguments *) *
-        (loc * stmt list * loc) option (* prototype implementation proof *)
+        proof_clauses option
       ) *
       (asn * (string (* result variable *) * asn)) option *  (* contract *)
       bool *  (* terminates *)
@@ -1073,6 +1073,10 @@ and
       string (* name of the specialized function, e.g. "std::ops::<Range<usize> as std::iter::IntoIterator>::into_iter" *) *
       (string * tparam_bounds_expr) list (* type parameters of the specialized function *) *
       type_expr list (* type arguments for the generic function, e.g. Range<usize> *)
+and proof_clauses = {
+  safety_proof: (loc * stmt list * loc) option; (* prototype implementation proof *)
+  protection_proof: (loc * stmt list * loc) option (* protection invariance proof of a Rust function *)
+}
 and (* shared box is deeltje ghost state, waarde kan enkel via actions gewijzigd worden, handle predicates geven info over de ghost state, zelfs als er geen eigendom over de box is*)
   action_decl = (* ?action_decl *)
   | ActionDecl of loc * string * bool (* does performing this action require a corresponding action permission? *) * (type_expr * string) list * expr * expr
@@ -1132,6 +1136,12 @@ let tparams_with_bounds_expr bounds tparams =
 
 let no_bounds = { sized = false }
 let unbounded_tparams tparams = tparams_with_bounds_expr no_bounds tparams
+
+let no_proof_clauses = {safety_proof = None; protection_proof = None}
+let mk_proof_clauses safety_proof protection_proof =
+  match safety_proof, protection_proof with
+    None, None -> None
+  | _ -> Some {safety_proof; protection_proof}
 
 let func_kind_of_ghostness gh =
   match gh with
@@ -1342,12 +1352,14 @@ let stmt_fold_open f state s =
     List.fold_left f state ssf
   | BlockStmt (l, ds, ss, _, _) ->
     let process_decl state = function
-      Func (_, _, _, _, _, _, _, (_, prototypeImplementationProof), _, _, body, _, _) ->
+      Func (_, _, _, _, _, _, _, (_, proof_clauses), _, _, body, _, _) ->
       let state = match body with None -> state | Some (ss, _) -> List.fold_left f state ss in
-      begin match prototypeImplementationProof with
+      let process_proof state = function
         None -> state
       | Some (_, ss, _) -> List.fold_left f state ss
-      end
+      in
+      let {safety_proof; protection_proof} = Option.value proof_clauses ~default:no_proof_clauses in
+      process_proof (process_proof state safety_proof) protection_proof
     | _ -> state
     in
     let state = List.fold_left process_decl state ds in

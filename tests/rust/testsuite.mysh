@@ -31,6 +31,15 @@ cd tree_borrows
   [ "$(verifast -check_protectors check_protectors_flag.rs)" = $'-check_protectors: unwind paths are not yet supported; use -ignore_unwind_paths' ]
   [ "$(verifast -read_options_from_source_file check_protectors_flag.rs)" = $'-check_protectors: unwind paths are not yet supported; use -ignore_unwind_paths' ]
   verifast -read_options_from_source_file -ignore_unwind_paths check_protectors_flag.rs
+  verifast -ignore_unwind_paths -skip_specless_fns protection_proof_clause_unsafe.rs
+  verifast -ignore_unwind_paths -skip_specless_fns protection_proof_clause_safe.rs
+  [ "$(verifast -ignore_unwind_paths -skip_specless_fns -check_protectors protection_proof_clause_unsafe.rs)" = $'protection_proof_clause_unsafe.rs(5,5-21): error: -check_protectors: protection_proof clauses are not yet supported\n5 | //@ protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+  [ "$(verifast -ignore_unwind_paths -skip_specless_fns -check_protectors protection_proof_clause_safe.rs)" = $'protection_proof_clause_safe.rs(11,5-21): error: -check_protectors: protection_proof clauses are not yet supported\n11 | //@ protection_proof { open Cell(x, _); protect(); close Cell(x, _); let r = call(); open Cell(x, _); unprotect(); close Cell(x, _); }\n   |     ^^^^^^^^^^^^^^^^' ]
+  verifast -ignore_unwind_paths -skip_specless_fns -allow_should_fail protection_proof_order.rs
+  [ "$(verifast protection_proof_lemma.rs)" = $'protection_proof_lemma.rs(6,5-21): error: Parse error: protection_proof clause is not allowed here.\n6 |     protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+  verifast -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_trait_provided.rs
+  verifast -ignore_unwind_paths -skip_specless_fns protection_proof_trait_required.rs
+  [ "$(verifast -ignore_unwind_paths -skip_specless_fns -check_protectors protection_proof_trait_required.rs)" = $'protection_proof_trait_required.rs(6,9-25): error: Parse error: protection_proof clause is not allowed here.\n6 |     //@ protection_proof { protect(); let r = call(); unprotect(); }\n  |         ^^^^^^^^^^^^^^^^' ]
 cd ..
 begin_sequential
 cd unverified

@@ -546,6 +546,10 @@ let parse_pred_asn = function%parser
   | _ -> raise (ParseException (expr_loc e, "Body of open or close statement must be call expression."))
   end
 
+let reject_protection_proof = function
+  Some {protection_proof = Some (l, _, _)} -> raise (ParseException (l, "protection_proof clause is not allowed here."))
+| _ -> ()
+
 let rec parse_pure_spec_clause = function%parser
   [ (_, Kwd "nonghost_callers_only") ] -> NonghostCallersOnlyClause
 | [ (l, Kwd "terminates"); (_, Kwd ";") ] -> TerminatesClause l
@@ -555,6 +559,8 @@ let rec parse_pure_spec_clause = function%parser
 | [ (_, Kwd "on_unwind_ens"); parse_asn as p; (_, Kwd ";") ] -> OnUnwindEnsuresClause p
 | [ (l, Kwd "safety_proof"); (_, Kwd "{"); parse_stmts as ss; (l', Kwd "}") ] ->
   PrototypeImplementationProofClause (l, ss, l')
+| [ (l, Kwd "protection_proof"); (_, Kwd "{"); parse_stmts as ss; (l', Kwd "}") ] ->
+  ProtectionProofClause (l, ss, l')
 and parse_spec_clause = function%parser
   [ [%let c = peek_in_ghost_range @@ function%parser
     [ parse_pure_spec_clause as c; (_, Kwd "@*/") ] -> c ] ] -> c
@@ -596,13 +602,18 @@ and parse_spec_clauses l k = function%parser
       PrototypeImplementationProofClause (l, ss, l')::cs -> Some (l, ss, l'), cs
     | _ -> None, cs
   in
+  let protectionProof, cs =
+    match cs with
+      ProtectionProofClause (l, ss, l')::cs -> Some (l, ss, l'), cs
+    | _ -> None, cs
+  in
   let assume_correct, cs =
     match cs with
       AssumeCorrectClause l::cs -> true, cs
     | _ -> false, cs
   in
-  if cs <> [] then raise (Stream.Error "The number, kind, or order of specification clauses is incorrect. Expected: nonghost_callers_only clause (optional), function type clause (optional), 'req', 'ens', and 'on_unwind_ens' clauses (optional), terminates clause (optional), safety_proof clause (optional), assume_correct clause (optional).");
-  ((nonghost_callers_only, (ft, safetyProof), pre_post, terminates), assume_correct)
+  if cs <> [] then raise (Stream.Error "The number, kind, or order of specification clauses is incorrect. Expected: nonghost_callers_only clause (optional), function type clause (optional), 'req', 'ens', and 'on_unwind_ens' clauses (optional), terminates clause (optional), safety_proof clause (optional), protection_proof clause (optional), assume_correct clause (optional).");
+  ((nonghost_callers_only, (ft, mk_proof_clauses safetyProof protectionProof), pre_post, terminates), assume_correct)
 and parse_stmt = function%parser
   [ (Lexed (sp1, _), Kwd "/*@"); parse_stmt as s; (Lexed (_, sp2), Kwd "@*/") ] ->
   PureStmt (Lexed (sp1, sp2), s)
@@ -762,17 +773,19 @@ and parse_func_rest k = function%parser
   [ [%let (l, g, tparams, ps, rt) = parse_func_header k];
     [%let d = function%parser
       [ (_, Kwd ";");
-        [%let ((nonghost_callers_only, (ft, safetyProof), co, terminates), assume_correct) = parse_spec_clauses l k]
+        [%let ((nonghost_callers_only, (ft, proofClauses), co, terminates), assume_correct) = parse_spec_clauses l k]
       ] ->
       if assume_correct then raise (ParseException (l, "assume_correct clause is not allowed here."));
-      Func (l, k, tparams, rt, g, ps, nonghost_callers_only, (ft, safetyProof), co, terminates, None, false, [])
-    | [ [%let ((nonghost_callers_only, (ft, safetyProof), co, terminates), assume_correct) = parse_spec_clauses l k];
+      reject_protection_proof proofClauses;
+      Func (l, k, tparams, rt, g, ps, nonghost_callers_only, (ft, proofClauses), co, terminates, None, false, [])
+    | [ [%let ((nonghost_callers_only, (ft, proofClauses), co, terminates), assume_correct) = parse_spec_clauses l k];
         (_, Kwd "{");
         parse_stmts as ss;
         (closeBraceLoc, Kwd "}")
       ] ->
+      reject_protection_proof proofClauses;
       let ss = if assume_correct then [ExprStmt (CallExpr (l, "assume", [], [], [LitPat (True l)], Static))] else ss in
-      Func (l, k, tparams, rt, g, ps, nonghost_callers_only, (ft, safetyProof), co, terminates, Some (ss, closeBraceLoc), false, [])
+      Func (l, k, tparams, rt, g, ps, nonghost_callers_only, (ft, proofClauses), co, terminates, Some (ss, closeBraceLoc), false, [])
     ]
   ] -> d
 

@@ -426,7 +426,7 @@ let vfparams = [
   "skip_specless_fns", (Vfparam Vfparam_skip_specless_fns, "Skip verification of functions for which the user did not provide a precondition and postcondition. This is the default behavior for C, C++ and Java but not for Rust.");
   "ignore_ref_creation", (Vfparam Vfparam_ignore_ref_creation, "In Rust, treat &E or &mut E like &raw E. This is unsound!");
   "ignore_unwind_paths", (Vfparam Vfparam_ignore_unwind_paths, "In Rust, ignore control flow paths due to stack unwinding after a panic. This is sound only when compiling with -C panic=abort.");
-  "check_protectors", (Vfparam Vfparam_check_protectors, "In Rust, check that each function's specification is invariant under Tree Borrows protectors. Under development: for now it only rejects unwind mode.");
+  "check_protectors", (Vfparam Vfparam_check_protectors, "In Rust, check that each function's specification is invariant under Tree Borrows protectors. Under development: for now it rejects unwind mode and protection_proof clauses.");
 ]
 
 type vfbinding = Vfbinding: 'a vfparam * 'a -> vfbinding

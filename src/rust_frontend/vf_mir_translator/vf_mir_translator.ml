@@ -333,6 +333,7 @@ module type VF_MIR_TRANSLATOR_ARGS = sig
   val allow_ignore_ref_creation : bool
   val ignore_ref_creation : bool
   val ignore_unwind_paths : bool
+  val check_protectors : bool
   val rocq_writer : Rocq_writer.rocq_writer
 end
 
@@ -4723,7 +4724,7 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
     let* annots = ListAux.try_map translate_annotation contract in
     let annots = List.map translate_annot_to_vf_parser_inp annots in
     let* ( ( (nonghost_callers_only : bool),
-             ((fn_type_clause : _ option), safetyProof),
+             ((fn_type_clause : _ option), proof_clauses),
              (pre_post : _ option),
              (terminates : bool) ),
            (assume_correct : bool) ) =
@@ -4752,6 +4753,7 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
     if assume_correct then
       Ast.static_error loc
         "assume_correct does not make sense on trait required functions" None;
+    if Args.check_protectors then Rust_parser.reject_protection_proof proof_clauses;
     let ret_ty, pre_post =
       if Args.ignore_unwind_paths then
         (ret_ty, Option.map Rust_parser.result_spec_of_outcome_spec pre_post)
@@ -5156,10 +5158,16 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
         let* closing_cbrace_loc = LocAux.get_last_col_loc loc in
         let mk_fn_decl contract body =
           let ( (nonghost_callers_only : bool),
-                ((fn_type_clause : _ option), safetyProof),
+                ((fn_type_clause : _ option), proof_clauses),
                 (pre_post : _ option),
                 (terminates : bool) ) =
             contract
+          in
+          let proof_clauses =
+            if TranslatorArgs.check_protectors then proof_clauses
+            else
+              Option.bind proof_clauses (fun { Ast.safety_proof; _ } ->
+                  Ast.mk_proof_clauses safety_proof None)
           in
           Ast.Func
             ( loc,
@@ -5173,7 +5181,7 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
               name,
               vf_param_decls,
               nonghost_callers_only,
-              (fn_type_clause, safetyProof),
+              (fn_type_clause, proof_clauses),
               (if TranslatorArgs.ignore_unwind_paths then
                  Option.map Rust_parser.result_spec_of_outcome_spec pre_post
                else pre_post),
@@ -7757,7 +7765,9 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
                                  name,
                                  ps,
                                  false,
-                                 (None, None),
+                                 ( None,
+                                   ( None
+                                   | Some { Ast.safety_proof = None; _ } ) ),
                                  Some (pre, (result_var, post)),
                                  terminates,
                                  body,

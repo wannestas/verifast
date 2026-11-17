@@ -497,7 +497,7 @@ module VerifyExpr(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
     let rec iter pn ilist funcmap prototypes_implemented ds =
       match ds with
         [] -> (funcmap, List.rev prototypes_implemented)
-      | Func (l, k, tparams_with_bounds, rt, fn, xs, nonghost_callers_only, (functype_opt, prototypeImplementationProof_opt), contract_opt, terminates, body, is_virtual, overrides)::ds when k <> Fixpoint ->
+      | Func (l, k, tparams_with_bounds, rt, fn, xs, nonghost_callers_only, (functype_opt, proof_clauses_opt), contract_opt, terminates, body, is_virtual, overrides)::ds when k <> Fixpoint ->
         let tparams = List.map fst tparams_with_bounds in
         let fn = full_name pn fn in
         let fterm = List.assoc fn funcnameterms in
@@ -516,6 +516,7 @@ module VerifyExpr(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
             ["thisType", ctxt#mk_app type_info []]
           | _ -> []
         in
+        let prototypeImplementationProof_opt = (Option.value proof_clauses_opt ~default:no_proof_clauses).safety_proof in
         begin match body, prototypeImplementationProof_opt with
           None, Some (l, ss, _) -> static_error l "Function prototype implementation must have a body." None
         | _ -> ()
@@ -527,15 +528,15 @@ module VerifyExpr(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
               None -> ()
             | Some (l, ss, _) -> static_error l "This function does not have a prototype." None
             end;
-            cont (fn, FuncInfo ([], fterm, l, k, tparams_with_bounds, rt, xmap, nonghost_callers_only, pre, pre_tenv, post, terminates, (functype_opt, (None, None)), body', is_virtual, overrides)) prototypes_implemented
+            cont (fn, FuncInfo ([], fterm, l, k, tparams_with_bounds, rt, xmap, nonghost_callers_only, pre, pre_tenv, post, terminates, (functype_opt, (None, proof_clauses_opt)), body', is_virtual, overrides)) prototypes_implemented
           | Some (FuncInfo ([], fterm0, l0, k0, tparams0, rt0, xmap0, nonghost_callers_only0, pre0, pre_tenv0, post0, terminates0, _, Some _, is_virtual0, overrides0)) ->
             if body = None then
               static_error l "Function prototype must precede function implementation." None
             else
               static_error l "Duplicate function implementation." None
-          | Some (FuncInfo ([], fterm0, l0, k0, tparams0, rt0, xmap0, nonghost_callers_only0, pre0, pre_tenv0, post0, terminates0, (functype_opt0, (None, None)), None, is_virtual, overrides0)) ->
+          | Some (FuncInfo ([], fterm0, l0, k0, tparams0, rt0, xmap0, nonghost_callers_only0, pre0, pre_tenv0, post0, terminates0, (functype_opt0, (None, _)), None, is_virtual, overrides0)) ->
             if body = None then static_error l "Duplicate function prototype." None;
-            cont (fn, FuncInfo ([], fterm, l, k, tparams_with_bounds, rt, xmap, nonghost_callers_only, pre, pre_tenv, post, terminates, (functype_opt, (Some (k0, tparams0, rt0, xmap0, nonghost_callers_only0, fenv, pre0, pre_tenv0, post0, terminates0), prototypeImplementationProof_opt)), body', is_virtual, overrides)) ((fn, l0)::prototypes_implemented)
+            cont (fn, FuncInfo ([], fterm, l, k, tparams_with_bounds, rt, xmap, nonghost_callers_only, pre, pre_tenv, post, terminates, (functype_opt, (Some (k0, tparams0, rt0, xmap0, nonghost_callers_only0, fenv, pre0, pre_tenv0, post0, terminates0), proof_clauses_opt)), body', is_virtual, overrides)) ((fn, l0)::prototypes_implemented)
         end @@ fun func_info protos_implemented ->
         let () = check_cxx_spec_overrides fenv func_info (fun name -> assoc2 name funcmap funcmap0) in
         iter pn ilist (func_info :: funcmap) protos_implemented ds
