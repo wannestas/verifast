@@ -3948,7 +3948,485 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
       verify_cons (cpn, cilist) cfinal cn csuper superctors boxes lems cctors ctpenv;
       verify_meths (cpn, cilist) cfinal cabstract boxes lems cmeths ctpenv;
       verify_classes boxes lems classm
-  
+
+  (* The type of x in 'let x = call();' in a proof clause *)
+  let call_result_type (pn, ilist) tparams rt ld tx =
+    let t = option_map (check_pure_type (pn, ilist) tparams Ghost) tx in
+    match (t, rt) with
+    | _, None -> static_error ld "Function does not return a value" None
+    | Some t, Some rt ->
+        expect_type ld (Some true) rt t;
+        t
+    | None, Some rt -> rt
+
+  (* The protection obligation (-check_protectors): the function's own contract, checked with its reference parameters
+     protected during the call and its reference result retagged, as the protection_proof clause directs *)
+
+  type protection_phase =
+    | BeforeProtect
+    | Protecting
+    | Protected
+    | Called
+    | Unprotecting
+    | Resolving
+    | Unprotected
+    | Retagging
+    | Retagged
+
+  type protection_command =
+    | Protect of rust_ref_kind
+    | Call
+    | Unprotect
+    | Resolve
+    | Retag of rust_ref_kind
+    | ResolveResult
+
+  type protected_param = {
+    prot_name : string;
+    prot_arg : termnode;
+    prot_child : termnode;
+    prot_pointee : type_;
+    prot_protector : termnode chunk;
+    prot_stashed : bool;
+    prot_resolved : bool;
+  }
+
+  type protection_state = {
+    phase : protection_phase;
+    prots : protected_param list;
+    res : termnode option;
+    retagged : termnode option;
+  }
+
+  let verify_protection_obligation (pn, ilist) gs boxes l g k
+      tparams_with_bounds rt ps nonghost_callers_only pre pre_tenv post
+      terminates (lpp, ss, lpp_end) =
+    let pure = true in
+    let leminfo = RealFuncInfo (gs, g ^ "#protection", terminates) in
+    let tparams = List.map fst tparams_with_bounds in
+    let internal_error l msg =
+      static_error l ("protection_proof: internal error: " ^ msg) None
+    in
+    let return_cont _ _ =
+      assert_false [] [] lpp
+        "Return statements are not allowed in this position" None
+    in
+    let econt _ _ _ _ =
+      assert_false [] [] lpp "Exceptions are not allowed in this position" None
+    in
+    let ref_protector_symb, ref_protector_arity, ref_protector_inputs =
+      let _, _, _, pts, symb, inputs, _ =
+        List.assoc "ref_protector" predfammap
+      in
+      (symb, List.length pts, inputs)
+    in
+    let ref_end_token_symb = get_pred_symb "ref_end_token" in
+    let ref_initialized_symb = get_pred_symb "ref_initialized" in
+    let points_to_symb = generic_points_to_symb () in
+    let consume_protector l h env targs pats cont =
+      consume_chunk rules h env [] [] [] l (ref_protector_symb, true) targs
+        real_unit real_unit_pat ref_protector_inputs pats
+      @@ fun protector h _ _ _ _ _ _ -> cont protector h
+    in
+    let assert_bounds h env l t tp msg =
+      Option.iter
+        (fun fact -> assert_term fact h env l msg None)
+        (bounds_fact t tp)
+    in
+    let call_lemma l h env g targs args xo cont =
+      let (FuncInfo
+             ( funenv,
+               fterm,
+               lg,
+               k,
+               callee_tparams,
+               rt,
+               ps,
+               _,
+               pre,
+               _,
+               post,
+               terminates,
+               _,
+               body,
+               _,
+               _ )) =
+        List.assoc g funcmap
+      in
+      if not (is_lemma k) then internal_error l (g ^ " is not a lemma");
+      if body = None then register_prototype_used lg g (Some fterm);
+      let eval_h _ _ _ _ = assert false in
+      verify_call funcmap eval_h l (pn, ilist) xo (Some g) targs
+        (List.map (fun t -> TermPat t) args)
+        (callee_tparams, rt, ps, funenv, pre, post, None, terminates, false)
+        pure false None leminfo [] h tparams pre_tenv [] env cont econt
+    in
+    let protect l h env kind arg pointee xo cont =
+      let lemma, args =
+        match kind with
+        | Mutable -> ("protect_ref_mut", [ arg ])
+        | Shared -> ("protect_ref", [ arg; real_half ])
+      in
+      call_lemma l h env lemma [ pointee ] args xo @@ fun h _ child ->
+      cont h child
+    in
+    (* Chains p's borrowers to p's target g, then ends p; what doesn't apply is left for the leak check *)
+    let resolve l h env pointee p g cont =
+      let chunk_coef symb args = function
+        | Chunk ((symb', true), [ t ], coef, args', _)
+          when symb' == symb && unify t pointee
+               && for_all_take2 definitely_equal (List.length args) args' args
+          ->
+            Some coef
+        | _ -> None
+      in
+      (* The first matching chunk, as consume_chunk finds it *)
+      let first_coef symb args h =
+        head_flatmap_option (chunk_coef symb args) h
+      in
+      let covers symb args q h =
+        h
+        |> List.exists @@ fun chunk ->
+           match chunk_coef symb args chunk with
+           | Some coef ->
+               (not (is_dummy_frac_term coef))
+               && ctxt#query (ctxt#mk_real_le q coef)
+           | None -> false
+      in
+      let borrowers =
+        h
+        |> flatmap @@ function
+           | Chunk ((symb, true), [ t ], coef, [ a; p' ], _)
+             when symb == ref_end_token_symb && unify t pointee
+                  && definitely_equal p' p
+                  && (not (definitely_equal a p))
+                  && not (is_dummy_frac_term coef) ->
+               [ a ]
+           | _ -> []
+      in
+      let rec chain h borrowers =
+        match borrowers with
+        | [] ->
+            begin match first_coef ref_end_token_symb [ p; g ] h with
+            | Some q
+              when (not (is_dummy_frac_term q))
+                   && covers points_to_symb [ p ] q h
+                   && covers ref_initialized_symb [ p ] q h ->
+                call_lemma l h env "end_ref_to" [ pointee ] [ p; g ] None
+                @@ fun h _ _ -> cont h
+            | _ -> cont h
+            end
+        | a :: borrowers -> (
+            match first_coef ref_end_token_symb [ a; p ] h with
+            | Some q
+              when (not (is_dummy_frac_term q))
+                   && covers ref_end_token_symb [ p; g ] q h
+                   && covers ref_initialized_symb [ p ] q h ->
+                call_lemma l h env "ref_end_token_trans_to" [ pointee ]
+                  [ a; p; g ] None
+                @@ fun h _ _ -> chain h borrowers
+            | _ -> chain h borrowers)
+      in
+      chain h borrowers
+    in
+    let prolog h env args0 cont =
+      let expect_phase l phase phases =
+        if not (List.mem phase phases) then
+          internal_error l "the protection framework's steps are out of order"
+      in
+      let find_prot l prots x =
+        match try_find (fun p -> p.prot_name = x) prots with
+        | Some p -> p
+        | None -> internal_error l (x ^ " is not protected")
+      in
+      let update_prot prots p =
+        prots
+        |> List.map (fun p' -> if p'.prot_name = p.prot_name then p else p')
+      in
+      let check_all_resolved l prots =
+        if List.exists (fun p -> p.prot_stashed || not p.prot_resolved) prots
+        then internal_error l "a parameter is not unprotected and resolved"
+      in
+      let result_pointee l =
+        match rt with
+        | Some (RustRefType (_, _, pointee)) -> pointee
+        | _ -> internal_error l "the result is not a reference"
+      in
+      let bind_result binding tenv ghostenv env result cont =
+        match (binding, result) with
+        | None, _ -> cont tenv ghostenv env
+        | Some (ld, tx, x), Some result ->
+            if List.mem_assoc x tenv then
+              static_error ld "Duplicate variable name." None;
+            let t = call_result_type (pn, ilist) tparams rt ld tx in
+            cont ((x, t) :: tenv) (x :: ghostenv) ((x, result) :: env)
+        | Some (ld, _, _), None ->
+            static_error ld "Function does not return a value" None
+      in
+      let command_of_name = function
+        | "#protect_ref_mut" -> Some (Protect Mutable)
+        | "#protect_ref" -> Some (Protect Shared)
+        | "call" -> Some Call
+        | "#unprotect_ref" -> Some Unprotect
+        | "#resolve" -> Some Resolve
+        | "#retag_ref_mut" -> Some (Retag Mutable)
+        | "#retag_ref" -> Some (Retag Shared)
+        | "#resolve_result" -> Some ResolveResult
+        | _ -> None
+      in
+      let framework_command s =
+        let command lc c args binding =
+          command_of_name c |> Option.map (fun c -> (lc, c, args, binding))
+        in
+        match s with
+        | ExprStmt (CallExpr (lc, c, [], [], args, Static)) ->
+            command lc c args None
+        | DeclStmt
+            (_, [ (_, tx, x, Some (CallExpr (lc, c, [], [], args, Static)), _) ])
+          ->
+            command lc c args (Some (stmt_loc s, tx, x))
+        | _ -> None
+      in
+      let rec iter finish tenv ghostenv h env
+          ({ phase; prots; res; retagged } as st) ss =
+        match ss with
+        | [] -> finish h env st
+        | s :: ss -> (
+            match framework_command s with
+            | Some (lc, Protect kind, [ LitPat (Var (_, x)) ], None) ->
+                expect_phase lc phase [ BeforeProtect; Protecting ];
+                if List.exists (fun p -> p.prot_name = x) prots then
+                  internal_error lc (x ^ " is protected twice");
+                let i, pointee =
+                  match try_assoc_i x ps with
+                  | Some (i, RustRefType (_, _, pointee)) -> (i, pointee)
+                  | _ -> internal_error lc (x ^ " is not a reference parameter")
+                in
+                let arg = List.nth args0 i in
+                with_context (Executing (h, env, lc, "Protecting " ^ x))
+                @@ fun () ->
+                protect lc h env kind arg pointee (Some x) @@ fun h child ->
+                consume_protector lc h env [ pointee ]
+                  (TermPat child
+                  :: List.init (ref_protector_arity - 1) (fun _ -> dummypat))
+                @@ fun protector h ->
+                let p =
+                  {
+                    prot_name = x;
+                    prot_arg = arg;
+                    prot_child = child;
+                    prot_pointee = pointee;
+                    prot_protector = protector;
+                    prot_stashed = true;
+                    prot_resolved = false;
+                  }
+                in
+                iter finish tenv ghostenv h (update env x child)
+                  { st with phase = Protecting; prots = prots @ [ p ] }
+                  ss
+            | Some (lc, Call, [], binding) ->
+                expect_phase lc phase [ BeforeProtect; Protecting; Protected ];
+                ps
+                |> List.iter begin function
+                    | x, RustRefType _
+                      when not (List.exists (fun p -> p.prot_name = x) prots) ->
+                        internal_error lc (x ^ " is not protected")
+                    | _ -> ()
+                  end;
+                let args =
+                  List.map2
+                    (fun (x, _) arg ->
+                      match try_find (fun p -> p.prot_name = x) prots with
+                      | Some p -> p.prot_child
+                      | None -> arg)
+                    ps args0
+                in
+                with_context (Executing (h, env, lc, "Verifying call"))
+                @@ fun () ->
+                prots
+                |> List.iter begin fun p ->
+                    assert_bounds h env lc p.prot_child
+                      (List.assoc p.prot_name ps)
+                      ("Protection obligation: cannot prove the type facts of "
+                     ^ p.prot_name ^ " at the protected pointer")
+                  end;
+                with_context PushSubcontext @@ fun () ->
+                cont h args @@ fun h result post_cont ->
+                with_context PopSubcontext @@ fun () ->
+                begin match (result, rt) with
+                | Some result, Some t -> assume_var_facts result t false
+                | _ -> ()
+                end;
+                bind_result binding tenv ghostenv env result
+                @@ fun tenv ghostenv env ->
+                let finish h env { phase; prots; res; retagged } =
+                  expect_phase lpp phase
+                    [ Called; Resolving; Unprotected; Retagged ];
+                  check_all_resolved lpp prots;
+                  let result =
+                    match (rt, retagged) with
+                    | Some (RustRefType _), Some _ -> retagged
+                    | Some (RustRefType _), None | _, Some _ ->
+                        internal_error lpp
+                          "the result is retagged if and only if it is a \
+                           reference"
+                    | _, None -> res
+                  in
+                  with_context (Executing (h, env, lpp, "Returning the result"))
+                  @@ fun () ->
+                  begin match (result, rt) with
+                  | Some result, Some t ->
+                      assert_bounds h env lpp result t
+                        "Protection obligation: cannot prove the type facts of \
+                         the retagged result"
+                  | _ -> ()
+                  end;
+                  post_cont h result
+                in
+                iter finish tenv ghostenv h env
+                  { st with phase = Called; res = result; retagged = None }
+                  ss
+            | Some (lc, Unprotect, [ LitPat (Var (_, x)) ], None) ->
+                expect_phase lc phase [ Called; Unprotecting ];
+                let p = find_prot lc prots x in
+                if not p.prot_stashed then
+                  internal_error lc (x ^ " is unprotected twice");
+                with_context (Executing (h, env, lc, "Unprotecting " ^ x))
+                @@ fun () ->
+                let (Chunk (_, targs, _, args, _)) = p.prot_protector in
+                consume_protector lc (p.prot_protector :: h) env targs
+                  (List.map (fun t -> TermPat t) args)
+                @@ fun _ h ->
+                call_lemma lc (p.prot_protector :: h) env "unprotect_ref"
+                  [ p.prot_pointee ] [ p.prot_child ] None
+                @@ fun h _ _ ->
+                iter finish tenv ghostenv h (update env x p.prot_arg)
+                  {
+                    st with
+                    phase = Unprotecting;
+                    prots = update_prot prots { p with prot_stashed = false };
+                  }
+                  ss
+            | Some (lc, Resolve, [ LitPat (Var (_, x)) ], None) ->
+                expect_phase lc phase [ Unprotecting; Resolving ];
+                let p = find_prot lc prots x in
+                if p.prot_stashed || p.prot_resolved then
+                  internal_error lc
+                    (x ^ " is resolved before it is unprotected, or twice");
+                with_context (Executing (h, env, lc, "Resolving " ^ x))
+                @@ fun () ->
+                resolve lc h env p.prot_pointee p.prot_child p.prot_arg
+                @@ fun h ->
+                iter finish tenv ghostenv h env
+                  {
+                    st with
+                    phase = Resolving;
+                    prots = update_prot prots { p with prot_resolved = true };
+                  }
+                  ss
+            | Some (lc, Retag kind, [], binding) ->
+                expect_phase lc phase [ Called; Resolving; Unprotected ];
+                check_all_resolved lc prots;
+                let pointee = result_pointee lc in
+                let res =
+                  match res with
+                  | Some res -> res
+                  | None -> internal_error lc "no result to retag"
+                in
+                with_context (Executing (h, env, lc, "Retagging the result"))
+                @@ fun () ->
+                protect lc h env kind res pointee None @@ fun h retagged ->
+                call_lemma lc h env "unprotect_ref" [ pointee ] [ retagged ]
+                  None
+                @@ fun h _ _ ->
+                bind_result binding tenv ghostenv env (Some retagged)
+                @@ fun tenv ghostenv env ->
+                iter finish tenv ghostenv h env
+                  { st with phase = Retagging; retagged = Some retagged }
+                  ss
+            | Some (lc, ResolveResult, [], None) ->
+                expect_phase lc phase [ Retagging ];
+                let pointee = result_pointee lc in
+                let res =
+                  match res with
+                  | Some res -> res
+                  | None -> internal_error lc "no result to resolve"
+                in
+                let cont h =
+                  iter finish tenv ghostenv h env
+                    { st with phase = Retagged }
+                    ss
+                in
+                with_context (Executing (h, env, lc, "Resolving the result"))
+                @@ fun () ->
+                let target =
+                  h
+                  |> head_flatmap_option @@ function
+                     | Chunk ((symb, true), [ t ], coef, [ res'; g ], _)
+                       when symb == ref_end_token_symb && unify t pointee
+                            && definitely_equal res' res
+                            && not (is_dummy_frac_term coef) ->
+                         Some g
+                     | _ -> None
+                in
+                begin match target with
+                | Some g -> resolve lc h env pointee res g cont
+                | None -> cont h
+                end
+            | _ ->
+                let l = stmt_loc s in
+                let phase =
+                  match phase with
+                  | Protecting -> Protected
+                  | Resolving -> Unprotected
+                  | Unprotecting | Retagging ->
+                      internal_error l "user code inside a protection framework step"
+                  | phase -> phase
+                in
+                with_context (Executing (h, env, l, "Executing statement"))
+                @@ fun () ->
+                verify_stmt (pn, ilist) [] [] tparams boxes pure leminfo funcmap
+                  predinstmap [] tenv ghostenv h env s
+                  (fun sizemap tenv ghostenv h env ->
+                    iter finish tenv ghostenv h env { st with phase } ss)
+                  return_cont econt)
+      in
+      let finish _ _ _ = internal_error lpp "missing call()" in
+      iter finish pre_tenv (List.map fst pre_tenv) h env
+        { phase = BeforeProtect; prots = []; res = None; retagged = None }
+        ss
+    in
+    push_tparam_bounds_table ();
+    tparams_with_bounds
+    |> List.iter (fun (x, { sized }) -> if sized then register_tparam_sized x);
+    Rocq_writer.rocq_suppress_output rocq_writer begin fun () ->
+        check_func_header_compat_core l lpp_end
+          ("Function '" ^ g ^ "'")
+          "Protection obligation" []
+          ( k,
+            tparams_with_bounds,
+            rt,
+            ps,
+            nonghost_callers_only,
+            pre,
+            post,
+            [],
+            terminates )
+          ( k,
+            tparams_with_bounds,
+            rt,
+            ps,
+            nonghost_callers_only,
+            [],
+            [],
+            pre,
+            post,
+            [],
+            terminates )
+          prolog
+      end;
+    pop_tparam_bounds_table ()
+
   let rec verify_funcs (pn,ilist)  boxes gs lems ds =
     match ds with
      [] -> (boxes, gs, lems)
@@ -3989,10 +4467,6 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
       let {safety_proof = prototypeImplementationProof_opt; protection_proof = protectionProof_opt} =
         Option.value proof_clauses_opt ~default:no_proof_clauses
       in
-      begin match protectionProof_opt with
-        Some (lpp, _, _) -> static_error lpp "-check_protectors: protection_proof clauses are not yet supported" None
-      | None -> ()
-      end;
       push_tparam_bounds_table ();
       begin match prototype_opt, prototypeImplementationProof_opt with
         None, None -> ()
@@ -4045,15 +4519,7 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
                   call lc tenv ghostenv h env args None ss cont
                 | DeclStmt (ld, [lx, tx, x, Some (CallExpr (lc, "call", [], [], [], Static)), _])::ss ->
                   if List.mem_assoc x tenv then static_error lc "Duplicate variable name." None;
-                  let t = option_map (check_pure_type (pn,ilist) tparams0 Ghost) tx in
-                  let t =
-                    match t, rt with
-                      _, None -> static_error ld "Function does not return a value" None
-                    | Some t, Some rt ->
-                      expect_type ld (Some true) rt t;
-                      t
-                    | None, Some rt -> rt
-                  in
+                  let t = call_result_type (pn, ilist) tparams0 rt ld tx in
                   call lc tenv ghostenv h env args (Some (x, t)) ss cont
                 | s::ss ->
                   with_context (Executing (h, env, stmt_loc s, "Executing statement")) @@ fun () ->
@@ -4073,7 +4539,9 @@ module VerifyProgram(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
       pop_tparam_bounds_table ();
       let tparams = [] in
       let env = [] in
-      verify_func pn ilist gs lems boxes predinstmap funcmap tparams env l k tparams' rt g ps const_params nonghost_callers_only pre pre_tenv post terminates ss closeBraceLoc
+      let gs', lems' = verify_func pn ilist gs lems boxes predinstmap funcmap tparams env l k tparams' rt g ps const_params nonghost_callers_only pre pre_tenv post terminates ss closeBraceLoc in
+      protectionProof_opt |> Option.iter (verify_protection_obligation (pn, ilist) gs boxes l g k tparams' rt ps nonghost_callers_only pre pre_tenv post terminates);
+      gs', lems'
       end in
       verify_funcs (pn, ilist) boxes gs' lems' ds
     | BoxClassDecl (l, bcn, _, _, _, _)::ds -> let bcn=full_name pn bcn in

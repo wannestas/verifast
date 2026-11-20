@@ -33,13 +33,46 @@ cd tree_borrows
   verifast -read_options_from_source_file -ignore_unwind_paths check_protectors_flag.rs
   verifast -ignore_unwind_paths -skip_specless_fns protection_proof_clause_unsafe.rs
   verifast -ignore_unwind_paths -skip_specless_fns protection_proof_clause_safe.rs
-  [ "$(verifast -ignore_unwind_paths -skip_specless_fns -check_protectors protection_proof_clause_unsafe.rs)" = $'protection_proof_clause_unsafe.rs(5,5-21): error: -check_protectors: protection_proof clauses are not yet supported\n5 | //@ protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
-  [ "$(verifast -ignore_unwind_paths -skip_specless_fns -check_protectors protection_proof_clause_safe.rs)" = $'protection_proof_clause_safe.rs(11,5-21): error: -check_protectors: protection_proof clauses are not yet supported\n11 | //@ protection_proof { open Cell(x, _); protect(); close Cell(x, _); let r = call(); open Cell(x, _); unprotect(); close Cell(x, _); }\n   |     ^^^^^^^^^^^^^^^^' ]
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns protection_proof_clause_unsafe.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns protection_proof_clause_safe.rs
   verifast -ignore_unwind_paths -skip_specless_fns -allow_should_fail protection_proof_order.rs
   [ "$(verifast protection_proof_lemma.rs)" = $'protection_proof_lemma.rs(6,5-21): error: Parse error: protection_proof clause is not allowed here.\n6 |     protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
   verifast -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_trait_provided.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_trait_provided.rs
   verifast -ignore_unwind_paths -skip_specless_fns protection_proof_trait_required.rs
   [ "$(verifast -ignore_unwind_paths -skip_specless_fns -check_protectors protection_proof_trait_required.rs)" = $'protection_proof_trait_required.rs(6,9-25): error: Parse error: protection_proof clause is not allowed here.\n6 |     //@ protection_proof { protect(); let r = call(); unprotect(); }\n  |         ^^^^^^^^^^^^^^^^' ]
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_assume -allow_dead_code protection_proof_references.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns protection_proof_assign_param.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns protection_proof_nested_call.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_chain_to_parent.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_reprotect.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_retag_before_protect.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns protection_proof_retag_in_predicate.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_close_at_retagged.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_skip_retag.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_skip_retag_placed.rs
+  verifast -check_protectors -ignore_unwind_paths -skip_specless_fns -allow_should_fail -allow_dead_code protection_proof_leftover.rs
+  cd protection_proof_errors
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns assume_correct.rs)" = $'assume_correct.rs(5,5-21): error: -check_protectors: protection_proof clause on an assume_correct function.\n5 | //@ protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns call_before_protect.rs)" = $'call_before_protect.rs(5,24-28): error: call() must come after protect().\n5 | //@ protection_proof { call(); protect(); unprotect(); }\n  |                        ^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns marker_in_if.rs)" = $'marker_in_if.rs(5,34-41): error: protect() must be at the top level of the protection_proof clause.\n5 | //@ protection_proof { if true { protect(); } call(); unprotect(); }\n  |                                  ^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns marker_in_lem_ptr_body.rs)" = $'marker_in_lem_ptr_body.rs(10,105-112): error: protect() must be at the top level of the protection_proof clause.\n10 | //@ protection_proof { produce_lem_ptr_chunk implies(True_, True_)() { open True_(); close True_(); } { protect(); } call(); unprotect(); }\n   |                                                                                                         ^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns missing_protect.rs)" = $'missing_protect.rs(5,5-21): error: protection_proof: protect() is missing.\n5 | //@ protection_proof { call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns projection.rs)" = $'projection.rs(9,5-21): error: -check_protectors: parameter \'x\' of type &mut (projection) is not yet supported.\n9 | //@ protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns projection_array.rs)" = $'projection_array.rs(10,5-21): error: -check_protectors: parameter \'x\' of type &mut (array) is not yet supported.\n10 | //@ protection_proof { protect(); call(); unprotect(); }\n   |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns projection_raw_ptr.rs)" = $'projection_raw_ptr.rs(10,5-21): error: -check_protectors: parameter \'x\' of type &mut (raw pointer) is not yet supported.\n10 | //@ protection_proof { protect(); call(); unprotect(); }\n   |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns protect_binding.rs)" = $'protect_binding.rs(5,32-39): error: protect() has no result.\n5 | //@ protection_proof { let a = protect(); call(); unprotect(); }\n  |                                ^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns protect_twice.rs)" = $'protect_twice.rs(5,35-42): error: protect() may appear only once.\n5 | //@ protection_proof { protect(); protect(); call(); unprotect(); }\n  |                                   ^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns retag_before_unprotect.rs)" = $'retag_before_unprotect.rs(5,51-56): error: retag() must come after unprotect().\n5 | //@ protection_proof { protect(); let r = call(); retag(); unprotect(); }\n  |                                                   ^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns retag_in_if.rs)" = $'retag_in_if.rs(5,74-79): error: retag() must be at the top level of the protection_proof clause.\n5 | //@ protection_proof { protect(); let r = call(); unprotect(); if true { retag(); } }\n  |                                                                          ^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns retag_twice.rs)" = $'retag_twice.rs(5,73-78): error: retag() may appear only once.\n5 | //@ protection_proof { protect(); let r = call(); unprotect(); retag(); retag(); }\n  |                                                                         ^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns retag_unit_result.rs)" = $'retag_unit_result.rs(5,56-61): error: retag(): this function\'s result is not retagged.\n5 | //@ protection_proof { protect(); call(); unprotect(); retag(); }\n  |                                                        ^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns struct_ref.rs)" = $'struct_ref.rs(7,5-21): error: -check_protectors: parameter \'x\' of type &Pair is not yet supported.\n7 | //@ protection_proof { protect(); let r = call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns tuple_param.rs)" = $'tuple_param.rs(6,5-21): error: -check_protectors: parameter \'p\' of type (&mut i32, i32) is not yet supported.\n6 | //@ protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns unprotect_missing.rs)" = $'unprotect_missing.rs(5,5-21): error: protection_proof: unprotect() is missing.\n5 | //@ protection_proof { protect(); call(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns unselected.rs)" = $'unselected.rs(6,5-21): error: -check_protectors: protection_proof clause on a function without references in its parameter and result types: there is nothing to prove.\n6 | //@ protection_proof { protect(); let r = call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+    [ "$(verifast -check_protectors -ignore_unwind_paths -skip_specless_fns unsized_param.rs)" = $'unsized_param.rs(5,5-21): error: -check_protectors: parameter \'x\' of type &mut T is not yet supported.\n5 | //@ protection_proof { protect(); call(); unprotect(); }\n  |     ^^^^^^^^^^^^^^^^' ]
+  cd ..
 cd ..
 begin_sequential
 cd unverified

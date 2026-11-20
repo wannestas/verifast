@@ -6684,27 +6684,32 @@ module VerifyProgram1(VerifyProgramArgs: VERIFY_PROGRAM_ARGS) = struct
   let mk_ptr_address p = if language = Java then p else ctxt#mk_app (ptr_address ()) [p]
   let mk_ptr_metadata p = if is_rust then ctxt#mk_app (ptr_metadata ()) [p] else real_unit
 
-  let assume_bounds term (tp: type_) = 
+  let bounds_fact term (tp: type_) =
     match tp with
       Int (_, _) ->
       let min, max = limits_of_type tp in
-      ctxt#assert_term (ctxt#mk_and (ctxt#mk_le min term) (ctxt#mk_le term max))
+      Some (ctxt#mk_and (ctxt#mk_le min term) (ctxt#mk_le term max))
     | PtrType _ | RustRefType _ when language <> Java ->
-      ctxt#assert_term (mk_pointer_within_limits term)
-    | _ -> ()
+      Some (mk_pointer_within_limits term)
+    | _ -> None
+
+  let assume_bounds term tp = Option.iter ctxt#assert_term (bounds_fact term tp)
   
   let assert_mk_pointer p pointeeType =
     let metadata = if is_rust && sizedness_of_type pointeeType = Some true then snd (pointer_metadata_none_symb ()) else mk_ptr_metadata p in
     ctxt#assert_term (ctxt#mk_eq p (mk_pointer (mk_ptr_provenance p) (mk_ptr_address p) metadata));
     if assume_no_provenance then ctxt#assert_term (ctxt#mk_eq (mk_ptr_provenance p) (snd (null_pointer_provenance_symb ())))
 
-  let get_unique_var_symb_ x t ghost = 
-    let result = get_unique_var_symb x t in
-    if not ghost then assume_bounds result t;
-    begin match language, t with
-      CLang, (PtrType pointeeType|RustRefType (_, _, pointeeType)) -> assert_mk_pointer result pointeeType
+  let assume_var_facts term t ghost =
+    if not ghost then assume_bounds term t;
+    match (language, t) with
+    | CLang, (PtrType pointeeType | RustRefType (_, _, pointeeType)) ->
+        assert_mk_pointer term pointeeType
     | _ -> ()
-    end;
+
+  let get_unique_var_symb_ x t ghost =
+    let result = get_unique_var_symb x t in
+    assume_var_facts result t ghost;
     result
 
   let () = 

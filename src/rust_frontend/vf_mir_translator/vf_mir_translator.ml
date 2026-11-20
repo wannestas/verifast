@@ -1724,6 +1724,16 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
     | `Uint D.U64 -> "u64"
     | `Uint D.U128 -> "u128"
     | `Uint D.USize -> "usize"
+    | `Ref (_, mut, ty) ->
+        (if mut then "&mut " else "&") ^ string_of_decoded_type ty
+    | `Str -> "str"
+    | `Slice ty -> "[" ^ string_of_decoded_type ty ^ "]"
+    | `Tuple tys ->
+        "(" ^ String.concat ", " (List.map string_of_decoded_type tys) ^ ")"
+    | `Param name -> name
+    | `Alias -> "(projection)"
+    | `Array -> "(array)"
+    | `RawPtr -> "(raw pointer)"
     | _ -> "(type)"
 
   and extract_implicit_outlives_clauses regions ty =
@@ -4897,6 +4907,149 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
               [],
               Static )))
 
+  (* Under -check_protectors: how the protection obligation treats a parameter or result type *)
+  let rec is_protection_noop_ty = function
+    | `Bool | `Int _ | `Uint _ | `Char | `Float _ | `RawPtr | `FnPtr | `FnDef _
+    | `Never ->
+        true
+    | `Tuple tys -> List.for_all is_protection_noop_ty tys
+    | _ -> false
+
+  (* The pointee of a protected reference: sized, and with a known shape *)
+  let is_protectable_pointee is_sized_tparam pointee =
+    match pointee with
+    | `Str | `Slice _ | `Dynamic _ | `Foreign | `Alias -> false
+    | `Param x -> is_sized_tparam x
+    | _ -> true
+
+  (* decode_ty drops some payloads (arrays, raw pointers); the translated type keeps them *)
+  let rec mentions_projection state (te : Ast.type_expr) =
+    match te with
+    | ProjectionTypeExpr _ -> true
+    | _ -> Ast.type_expr_fold_open mentions_projection state te
+
+  let protection_row is_sized_tparam ty =
+    match ty with
+    | _ when is_protection_noop_ty ty -> Some `NoOp
+    | `Ref (_, is_mut, pointee)
+      when is_protectable_pointee is_sized_tparam pointee ->
+        if is_mut then Some `Mut
+        else if
+          is_protection_noop_ty pointee
+          || match pointee with `Ref _ | `Param _ -> true | _ -> false
+        then Some `Shared
+        else None
+    | _ -> None
+
+  (* Checks the markers of a protection_proof clause and expands them into the
+     framework's commands *)
+  let expand_protection_proof (lp, ss, lp_close) protected_params retag_cmd =
+    let marker (s : Ast.stmt) =
+      match s with
+      | ExprStmt e | DeclStmt (_, [ (_, _, _, Some e, _) ]) -> (
+          match e with
+          | CallExpr
+              ( l,
+                (("protect" | "call" | "unprotect" | "retag") as m),
+                [],
+                [],
+                [],
+                Static ) ->
+              Some (l, m)
+          | _ -> None)
+      | _ -> None
+    in
+    (* A nested marker, except in nested proofs, whose call() is their own (a lemma-pointer chunk's body runs in the clause) *)
+    let rec check_nested (s : Ast.stmt) =
+      match s with
+      | ProduceLemmaFunctionPointerChunkStmt (_, _, _, body) ->
+          Option.iter check_nested_marker body
+      | ProduceFunctionPointerChunkStmt _ -> ()
+      | BlockStmt (_, _, ss, _, _) -> List.iter check_nested_marker ss
+      | _ -> Ast.stmt_fold_open (fun () s -> check_nested_marker s) () s
+    and check_nested_marker s =
+      match marker s with
+      | Some (l, m) ->
+          Ast.static_error l
+            (m ^ "() must be at the top level of the protection_proof clause.")
+            None
+      | None -> check_nested s
+    in
+    ss |> List.iter (fun s -> if marker s = None then check_nested s);
+    let present = List.filter_map marker ss |> List.map snd in
+    [ "protect"; "call"; "unprotect" ]
+    |> List.iter (fun m ->
+        if not (List.mem m present) then
+          Ast.static_error lp ("protection_proof: " ^ m ^ "() is missing.") None);
+    let check_marker seen s =
+      match marker s with
+      | None -> seen
+      | Some (l, m) ->
+          if List.mem m seen then
+            Ast.static_error l (m ^ "() may appear only once.") None;
+          let previous =
+            match m with
+            | "call" -> Some "protect"
+            | "unprotect" -> Some "call"
+            | "retag" -> Some "unprotect"
+            | _ -> None
+          in
+          (match previous with
+          | Some p when not (List.mem p seen) ->
+              Ast.static_error l (m ^ "() must come after " ^ p ^ "().") None
+          | _ -> ());
+          (match (s, m) with
+          | DeclStmt _, ("protect" | "unprotect") ->
+              Ast.static_error l (m ^ "() has no result.") None
+          | _ -> ());
+          m :: seen
+    in
+    let seen = List.fold_left check_marker [] ss in
+    let cmd l name args : Ast.stmt =
+      ExprStmt (CallExpr (l, name, [], [], args, Static))
+    in
+    let param_cmd l name x = cmd l name [ LitPat (Var (l, x)) ] in
+    let retag_name l =
+      match retag_cmd with
+      | Some c -> c
+      | None ->
+          Ast.static_error l "retag(): this function's result is not retagged."
+            None
+    in
+    let expand (s : Ast.stmt) =
+      match (marker s, s) with
+      | Some (l, "protect"), _ ->
+          List.map (fun (x, c) -> param_cmd l c x) protected_params
+      | Some (l, "unprotect"), _ ->
+          let params = List.rev protected_params in
+          List.map (fun (x, _) -> param_cmd l "#unprotect_ref" x) params
+          @ List.map (fun (x, _) -> param_cmd l "#resolve" x) params
+      | Some (l, "retag"), DeclStmt (ld, [ (lx, tx, x, Some _, info) ]) ->
+          [
+            DeclStmt
+              ( ld,
+                [
+                  ( lx,
+                    tx,
+                    x,
+                    Some (CallExpr (l, retag_name l, [], [], [], Static)),
+                    info );
+                ] );
+            cmd l "#resolve_result" [];
+          ]
+      | Some (l, "retag"), _ ->
+          [ cmd l (retag_name l) []; cmd l "#resolve_result" [] ]
+      | _ -> [ s ]
+    in
+    let ss = List.concat_map expand ss in
+    let ss =
+      match retag_cmd with
+      | Some c when not (List.mem "retag" seen) ->
+          ss @ [ cmd lp c []; cmd lp "#resolve_result" [] ]
+      | _ -> ss
+    in
+    (lp, ss, lp_close)
+
   let translate_body (body_tr_defs_ctx : body_tr_defs_ctx) (body_cpn : BodyRd.t)
       =
     let open BodyRd in
@@ -5156,6 +5309,53 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
         let span_cpn = span_get body_cpn in
         let* loc = translate_span_data span_cpn in
         let* closing_cbrace_loc = LocAux.get_last_col_loc loc in
+        let contract, assume_false = contract in
+        let check_protection_proof ((lp, _, _) as clause) =
+          let row what ty vf_ty =
+            let ty = decode_ty ty in
+            match protection_row (fun x -> List.mem x sized_tparams) ty with
+            | Some `NoOp -> `NoOp
+            | Some row when not (mentions_projection false vf_ty) -> row
+            | _ ->
+                Ast.static_error lp
+                  (Printf.sprintf
+                     "-check_protectors: %s of type %s is not yet supported."
+                     what
+                     (string_of_decoded_type ty))
+                  None
+          in
+          let params =
+            List.map2
+              (fun (_, x, ty_info) ty ->
+                (x, row ("parameter '" ^ x ^ "'") ty ty_info.Mir.vf_ty))
+              param_decls inputs
+          in
+          let protected_params =
+            params
+            |> List.filter_map (function
+              | x, `Mut -> Some (x, "#protect_ref_mut")
+              | x, `Shared -> Some (x, "#protect_ref")
+              | _, `NoOp -> None)
+          in
+          let retag_cmd =
+            match row "the result" output ret_ty with
+            | `Mut -> Some "#retag_ref_mut"
+            | `Shared -> Some "#retag_ref"
+            | `NoOp -> None
+          in
+          if assume_false then
+            Ast.static_error lp
+              "-check_protectors: protection_proof clause on an assume_correct \
+               function."
+              None;
+          if protected_params = [] && retag_cmd = None then
+            Ast.static_error lp
+              "-check_protectors: protection_proof clause on a function \
+               without references in its parameter and result types: there is \
+               nothing to prove."
+              None;
+          expand_protection_proof clause protected_params retag_cmd
+        in
         let mk_fn_decl contract body =
           let ( (nonghost_callers_only : bool),
                 ((fn_type_clause : _ option), proof_clauses),
@@ -5164,7 +5364,15 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
             contract
           in
           let proof_clauses =
-            if TranslatorArgs.check_protectors then proof_clauses
+            if TranslatorArgs.check_protectors then
+              Option.map
+                (fun ({ Ast.protection_proof; _ } as proof_clauses) ->
+                  {
+                    proof_clauses with
+                    protection_proof =
+                      Option.map check_protection_proof protection_proof;
+                  })
+                proof_clauses
             else
               Option.bind proof_clauses (fun { Ast.safety_proof; _ } ->
                   Ast.mk_proof_clauses safety_proof None)
@@ -5190,7 +5398,6 @@ module Make (Args : VF_MIR_TRANSLATOR_ARGS) = struct
               (*virtual*) false,
               (*overrides*) [] )
         in
-        let contract, assume_false = contract in
         let* body =
           if assume_false then
             Ok
